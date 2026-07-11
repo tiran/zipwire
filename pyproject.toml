@@ -26,6 +26,7 @@ dependencies = ["urllib3>=2.0"]
 
 [project.urls]
 Homepage = "https://github.com/tiran/zipwire"
+Documentation = "https://zipwire.readthedocs.io/"
 Source = "https://github.com/tiran/zipwire"
 Issues = "https://github.com/tiran/zipwire/issues"
 
