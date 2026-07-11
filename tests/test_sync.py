@@ -1,0 +1,198 @@
+"""Tests for SyncRemoteZip with MockSyncReader."""
+
+from __future__ import annotations
+
+import io
+import zipfile
+
+import pytest
+
+from tests.conftest import MockSyncReader
+from zipwire import SyncRemoteZip
+from zipwire._errors import FileNotFoundInZip
+from zipwire._zipinfo import RemoteZipInfo
+
+
+class TestSyncRemoteZip:
+    def test_namelist(self, stored_zip: bytes) -> None:
+        reader = MockSyncReader(stored_zip)
+        with SyncRemoteZip(reader) as rz:
+            names = rz.namelist()
+        assert "hello.txt" in names
+        assert "data/numbers.bin" in names
+
+    def test_infolist(self, stored_zip: bytes) -> None:
+        reader = MockSyncReader(stored_zip)
+        with SyncRemoteZip(reader) as rz:
+            infos = rz.infolist()
+        assert len(infos) == 2
+        for info in infos:
+            assert isinstance(info, RemoteZipInfo)
+            assert isinstance(info, zipfile.ZipInfo)
+
+    def test_getinfo(self, stored_zip: bytes) -> None:
+        reader = MockSyncReader(stored_zip)
+        with SyncRemoteZip(reader) as rz:
+            info = rz.getinfo("hello.txt")
+        assert info.filename == "hello.txt"
+        assert info.file_size == 13
+
+    def test_getinfo_not_found(self, stored_zip: bytes) -> None:
+        reader = MockSyncReader(stored_zip)
+        with SyncRemoteZip(reader) as rz, pytest.raises(FileNotFoundInZip):
+            rz.getinfo("nonexistent.txt")
+
+    def test_read_stored(self, stored_zip: bytes) -> None:
+        reader = MockSyncReader(stored_zip)
+        with SyncRemoteZip(reader) as rz:
+            data = rz.read("hello.txt")
+        assert data == b"Hello, World!"
+
+    def test_read_stored_binary(self, stored_zip: bytes) -> None:
+        reader = MockSyncReader(stored_zip)
+        with SyncRemoteZip(reader) as rz:
+            data = rz.read("data/numbers.bin")
+        assert data == b"\x01\x02\x03\x04\x05"
+
+    def test_read_deflated(self, deflated_zip: bytes) -> None:
+        reader = MockSyncReader(deflated_zip)
+        with SyncRemoteZip(reader) as rz:
+            data = rz.read("hello.txt")
+        assert data == b"Hello, World!"
+
+    def test_read_deflated_repeated(self, deflated_zip: bytes) -> None:
+        reader = MockSyncReader(deflated_zip)
+        with SyncRemoteZip(reader) as rz:
+            data = rz.read("repeated.txt")
+        assert data == b"AAAA" * 1000
+
+    def test_read_by_info(self, stored_zip: bytes) -> None:
+        reader = MockSyncReader(stored_zip)
+        with SyncRemoteZip(reader) as rz:
+            info = rz.getinfo("hello.txt")
+            data = rz.read(info)
+        assert data == b"Hello, World!"
+
+    def test_read_directory(self, directory_zip: bytes) -> None:
+        reader = MockSyncReader(directory_zip)
+        with SyncRemoteZip(reader) as rz:
+            names = rz.namelist()
+            for name in names:
+                info = rz.getinfo(name)
+                if info.is_dir():
+                    assert rz.read(info) == b""
+
+    def test_close(self, stored_zip: bytes) -> None:
+        reader = MockSyncReader(stored_zip)
+        rz = SyncRemoteZip(reader)
+        rz.close()
+        assert reader.closed
+
+    def test_context_manager_closes(self, stored_zip: bytes) -> None:
+        reader = MockSyncReader(stored_zip)
+        with SyncRemoteZip(reader) as rz:
+            rz.namelist()
+        assert reader.closed
+
+    def test_lazy_loading(self, stored_zip: bytes) -> None:
+        reader = MockSyncReader(stored_zip)
+        rz = SyncRemoteZip(reader)
+        # No requests made yet
+        assert reader.read_count == 0
+        # First access triggers loading
+        rz.namelist()
+        assert reader.read_count > 0
+        rz.close()
+
+    def test_unicode_filenames(self, unicode_zip: bytes) -> None:
+        reader = MockSyncReader(unicode_zip)
+        with SyncRemoteZip(reader) as rz:
+            names = rz.namelist()
+        assert "\u00e9\u00e0\u00fc.txt" in names
+        assert "\u4f60\u597d/world.txt" in names
+
+    def test_empty_zip(self, empty_zip: bytes) -> None:
+        reader = MockSyncReader(empty_zip)
+        with SyncRemoteZip(reader) as rz:
+            assert rz.namelist() == []
+            assert rz.infolist() == []
+
+    def test_comment_zip(self, comment_zip: bytes) -> None:
+        reader = MockSyncReader(comment_zip)
+        with SyncRemoteZip(reader) as rz:
+            assert rz.namelist() == ["file.txt"]
+            assert rz.read("file.txt") == b"content"
+
+    def test_mixed_compression(self, mixed_zip: bytes) -> None:
+        reader = MockSyncReader(mixed_zip)
+        with SyncRemoteZip(reader) as rz:
+            assert rz.read("stored.txt") == b"stored content"
+            assert rz.read("deflated.txt") == b"deflated " * 100
+
+    def test_read_into_stored(self, stored_zip: bytes) -> None:
+        reader = MockSyncReader(stored_zip)
+        with SyncRemoteZip(reader) as rz:
+            dest = io.BytesIO()
+            rz.read_into("hello.txt", dest)
+        assert dest.getvalue() == b"Hello, World!"
+
+    def test_read_into_stored_binary(self, stored_zip: bytes) -> None:
+        reader = MockSyncReader(stored_zip)
+        with SyncRemoteZip(reader) as rz:
+            dest = io.BytesIO()
+            rz.read_into("data/numbers.bin", dest)
+        assert dest.getvalue() == b"\x01\x02\x03\x04\x05"
+
+    def test_read_into_deflated(self, deflated_zip: bytes) -> None:
+        reader = MockSyncReader(deflated_zip)
+        with SyncRemoteZip(reader) as rz:
+            dest = io.BytesIO()
+            rz.read_into("hello.txt", dest)
+        assert dest.getvalue() == b"Hello, World!"
+
+    def test_read_into_deflated_repeated(self, deflated_zip: bytes) -> None:
+        reader = MockSyncReader(deflated_zip)
+        with SyncRemoteZip(reader) as rz:
+            dest = io.BytesIO()
+            rz.read_into("repeated.txt", dest)
+        assert dest.getvalue() == b"AAAA" * 1000
+
+    def test_read_into_by_info(self, stored_zip: bytes) -> None:
+        reader = MockSyncReader(stored_zip)
+        with SyncRemoteZip(reader) as rz:
+            info = rz.getinfo("hello.txt")
+            dest = io.BytesIO()
+            rz.read_into(info, dest)
+        assert dest.getvalue() == b"Hello, World!"
+
+    def test_read_into_directory(self, directory_zip: bytes) -> None:
+        reader = MockSyncReader(directory_zip)
+        with SyncRemoteZip(reader) as rz:
+            for name in rz.namelist():
+                info = rz.getinfo(name)
+                if info.is_dir():
+                    dest = io.BytesIO()
+                    rz.read_into(info, dest)
+                    assert dest.getvalue() == b""
+
+    def test_read_into_mixed_compression(self, mixed_zip: bytes) -> None:
+        reader = MockSyncReader(mixed_zip)
+        with SyncRemoteZip(reader) as rz:
+            stored_dest = io.BytesIO()
+            rz.read_into("stored.txt", stored_dest)
+            assert stored_dest.getvalue() == b"stored content"
+
+            deflated_dest = io.BytesIO()
+            rz.read_into("deflated.txt", deflated_dest)
+            assert deflated_dest.getvalue() == b"deflated " * 100
+
+    def test_matches_stdlib(self, stored_zip: bytes) -> None:
+        """Verify we read the same data as stdlib zipfile."""
+        reader = MockSyncReader(stored_zip)
+        with SyncRemoteZip(reader) as rz:
+            our_data = {name: rz.read(name) for name in rz.namelist()}
+
+        with zipfile.ZipFile(io.BytesIO(stored_zip)) as zf:
+            stdlib_data = {name: zf.read(name) for name in zf.namelist()}
+
+        assert our_data == stdlib_data
