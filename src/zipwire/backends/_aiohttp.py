@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import typing
 
 try:
@@ -19,6 +20,8 @@ if typing.TYPE_CHECKING:
 
     from zipwire._types import Headers
 
+logger = logging.getLogger(__name__)
+
 
 class AiohttpReader:
     """AsyncReader implementation using aiohttp.ClientSession."""
@@ -29,6 +32,7 @@ class AiohttpReader:
         self._session = session or aiohttp.ClientSession()
 
     async def head(self) -> Headers:
+        logger.debug("HEAD %s", self._url)
         async with self._session.head(self._url) as resp:
             resp.raise_for_status()
             if resp.headers.get("accept-ranges", "").lower() != "bytes":
@@ -42,6 +46,7 @@ class AiohttpReader:
         offset: int,
         length: int,
     ) -> tuple[bytes, Headers]:
+        logger.debug("GET %s %s (%d bytes)", self._url, range_header(offset, length), length)
         headers = {"Range": range_header(offset, length)}
         async with self._session.get(self._url, headers=headers) as resp:
             resp.raise_for_status()
@@ -52,6 +57,9 @@ class AiohttpReader:
             return await resp.read(), resp.headers
 
     async def stream_range(self, offset: int, length: int) -> AsyncIterator[bytes]:
+        logger.debug(
+            "GET stream %s %s (%d bytes)", self._url, range_header(offset, length), length
+        )
         headers = {"Range": range_header(offset, length)}
         async with self._session.get(self._url, headers=headers) as resp:
             resp.raise_for_status()

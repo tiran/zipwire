@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import typing
 
 try:
@@ -26,6 +27,8 @@ if typing.TYPE_CHECKING:
 
     from zipwire._types import Headers
 
+logger = logging.getLogger(__name__)
+
 
 class Httpx2SyncReader:
     """SyncReader implementation using httpx2.Client."""
@@ -44,6 +47,7 @@ class Httpx2SyncReader:
         self._client = client or httpx2.Client(http2=http2)
 
     def head(self) -> Headers:
+        logger.debug("HEAD %s", self._url)
         resp = self._client.head(self._url)
         resp.raise_for_status()
         if resp.headers.get("accept-ranges", "").lower() != "bytes":
@@ -57,6 +61,7 @@ class Httpx2SyncReader:
         offset: int,
         length: int,
     ) -> tuple[bytes, Headers]:
+        logger.debug("GET %s %s (%d bytes)", self._url, range_header(offset, length), length)
         resp = self._client.get(self._url, headers={"Range": range_header(offset, length)})
         resp.raise_for_status()
         if resp.status_code != 206:
@@ -66,6 +71,9 @@ class Httpx2SyncReader:
         return resp.content, resp.headers
 
     def stream_range(self, offset: int, length: int) -> Iterator[bytes]:
+        logger.debug(
+            "GET stream %s %s (%d bytes)", self._url, range_header(offset, length), length
+        )
         with self._client.stream(
             "GET", self._url, headers={"Range": range_header(offset, length)}
         ) as resp:
@@ -94,6 +102,7 @@ class Httpx2AsyncReader:
         self._client = client or httpx2.AsyncClient(http2=http2)
 
     async def head(self) -> Headers:
+        logger.debug("HEAD %s", self._url)
         resp = await self._client.head(self._url)
         resp.raise_for_status()
         if resp.headers.get("accept-ranges", "").lower() != "bytes":
@@ -107,6 +116,7 @@ class Httpx2AsyncReader:
         offset: int,
         length: int,
     ) -> tuple[bytes, Headers]:
+        logger.debug("GET %s %s (%d bytes)", self._url, range_header(offset, length), length)
         resp = await self._client.get(self._url, headers={"Range": range_header(offset, length)})
         resp.raise_for_status()
         if resp.status_code != 206:
@@ -116,6 +126,9 @@ class Httpx2AsyncReader:
         return resp.content, resp.headers
 
     async def stream_range(self, offset: int, length: int) -> AsyncIterator[bytes]:
+        logger.debug(
+            "GET stream %s %s (%d bytes)", self._url, range_header(offset, length), length
+        )
         async with self._client.stream(
             "GET", self._url, headers={"Range": range_header(offset, length)}
         ) as resp:

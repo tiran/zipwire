@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import typing
 
 try:
@@ -19,6 +20,8 @@ if typing.TYPE_CHECKING:
 
     from zipwire._types import Headers
 
+logger = logging.getLogger(__name__)
+
 
 class RequestsReader:
     """SyncReader implementation using requests.Session."""
@@ -29,6 +32,7 @@ class RequestsReader:
         self._session = session or requests.Session()
 
     def head(self) -> Headers:
+        logger.debug("HEAD %s", self._url)
         resp = self._session.head(self._url)
         resp.raise_for_status()
         if resp.headers.get("accept-ranges", "").lower() != "bytes":
@@ -42,6 +46,7 @@ class RequestsReader:
         offset: int,
         length: int,
     ) -> tuple[bytes, Headers]:
+        logger.debug("GET %s %s (%d bytes)", self._url, range_header(offset, length), length)
         resp = self._session.get(self._url, headers={"Range": range_header(offset, length)})
         resp.raise_for_status()
         if resp.status_code != 206:
@@ -51,6 +56,9 @@ class RequestsReader:
         return resp.content, resp.headers
 
     def stream_range(self, offset: int, length: int) -> Iterator[bytes]:
+        logger.debug(
+            "GET stream %s %s (%d bytes)", self._url, range_header(offset, length), length
+        )
         resp = self._session.get(
             self._url, headers={"Range": range_header(offset, length)}, stream=True
         )

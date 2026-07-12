@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import logging
 import sys
 
 from zipwire import AsyncRemoteZip, SyncRemoteZip, ZipwireError
@@ -58,7 +59,25 @@ def main(argv: list[str] | None = None) -> None:
         default="urllib3",
         help="HTTP backend to use (default: urllib3)",
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help="increase logging verbosity (-v INFO, -vv DEBUG)",
+    )
     args = parser.parse_args(argv)
+
+    if args.verbose >= 2:
+        level = logging.DEBUG
+    elif args.verbose == 1:
+        level = logging.INFO
+    else:
+        level = logging.WARNING
+    logging.basicConfig(
+        level=level,
+        format="%(levelname)s: %(name)s: %(message)s",
+    )
 
     try:
         if args.backend in ("urllib3", "requests"):
