@@ -44,6 +44,7 @@ jobs:
           enable-cache: true
       - run: uv sync --group dev --python ${{ matrix.python-version }}
       - run: uv run coverage run -m pytest
+      - run: uv run pytest -m integration -v
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: coverage-${{ matrix.python-version }}
