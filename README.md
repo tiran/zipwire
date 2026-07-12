@@ -38,13 +38,13 @@ sync and async:
 pip install zipwire[httpx2]
 ```
 
-| Backend  | Class              | Mode  | Install extra |
-|----------|--------------------|-------|---------------|
-| urllib3  | `Urllib3Reader`    | sync  | *(included)*  |
-| httpx2   | `Httpx2SyncReader` | sync  | `httpx2`      |
-| httpx2   | `Httpx2AsyncReader`| async | `httpx2`      |
-| requests | `RequestsReader`   | sync  | `requests`    |
-| aiohttp  | `AiohttpReader`    | async | `aiohttp`     |
+| Backend  | Class                | Mode  | HTTP    | Install extra |
+|----------|----------------------|-------|---------|---------------|
+| urllib3  | `Urllib3Reader`      | sync  | 1.1     | *(included)*  |
+| httpx2   | `Httpx2SyncReader`   | sync  | 1.1, 2  | `httpx2`      |
+| httpx2   | `Httpx2AsyncReader`  | async | 1.1, 2  | `httpx2`      |
+| requests | `RequestsReader`     | sync  | 1.1     | `requests`    |
+| aiohttp  | `AiohttpReader`      | async | 1.1     | `aiohttp`     |
 
 Every backend accepts an optional pre-configured client or session so you can
 share connection pools, authentication, and retry configuration.

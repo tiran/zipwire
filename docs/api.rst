@@ -36,10 +36,10 @@ Backends
 .. autoclass:: zipwire.backends._urllib3.Urllib3Reader
    :members:
 
-.. autoclass:: zipwire.backends._httpx2_sync.Httpx2SyncReader
+.. autoclass:: zipwire.backends._httpx2.Httpx2SyncReader
    :members:
 
-.. autoclass:: zipwire.backends._httpx2_async.Httpx2AsyncReader
+.. autoclass:: zipwire.backends._httpx2.Httpx2AsyncReader
    :members:
 
 .. autoclass:: zipwire.backends._requests.RequestsReader
