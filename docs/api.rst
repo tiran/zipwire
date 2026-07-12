@@ -15,6 +15,25 @@ Core
 .. autoclass:: zipwire.RemoteZipInfo
    :show-inheritance:
 
+Protocols and Types
+-------------------
+
+.. autoclass:: zipwire.SyncReader
+   :members:
+
+.. autoclass:: zipwire.AsyncReader
+   :members:
+
+.. autoclass:: zipwire.Headers
+   :members:
+
+.. autoclass:: zipwire.Writable
+   :members:
+
+.. autoclass:: zipwire.Whence
+   :members:
+   :undoc-members:
+
 Backends
 --------
 

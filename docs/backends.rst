@@ -84,7 +84,7 @@ protocol and pass an instance to :class:`~zipwire.SyncRemoteZip` or
 
    from collections.abc import Iterator
 
-   from zipwire import SyncReader, SyncRemoteZip
+   from zipwire import Headers, SyncReader, SyncRemoteZip, Whence
 
 
    class MyReader:
@@ -93,11 +93,16 @@ protocol and pass an instance to :class:`~zipwire.SyncRemoteZip` or
        def __init__(self, url: str) -> None:
            self._url = url
 
-       def get_content_length(self) -> int:
-           ...  # HEAD request, return Content-Length
+       def head(self) -> Headers:
+           ...  # HEAD request, check Accept-Ranges, return headers
 
-       def read_range(self, offset: int, length: int) -> bytes:
-           ...  # GET with Range header
+       def read_range(
+           self,
+           offset: int,
+           length: int,
+           whence: int = Whence.OFFSET,
+       ) -> tuple[bytes, Headers]:
+           ...  # GET with Range header, return (data, response_headers)
 
        def stream_range(self, offset: int, length: int) -> Iterator[bytes]:
            ...  # GET with Range header, yield chunks
@@ -108,4 +113,4 @@ protocol and pass an instance to :class:`~zipwire.SyncRemoteZip` or
    assert isinstance(MyReader("..."), SyncReader)  # runtime-checkable
 
 See the :class:`~zipwire.SyncReader` and :class:`~zipwire.AsyncReader`
-protocol definitions in the source for the full method signatures.
+protocol definitions for the full method signatures.

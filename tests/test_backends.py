@@ -23,9 +23,16 @@ def range_handler(zip_data: bytes):
         # GET with Range header
         range_header = request.headers.get("Range", "")
         if range_header.startswith("bytes="):
-            parts = range_header[6:].split("-")
-            start = int(parts[0])
-            end = int(parts[1]) if parts[1] else len(zip_data) - 1
+            range_spec = range_header[6:]
+            if range_spec.startswith("-"):
+                # Suffix range: bytes=-N
+                suffix_len = int(range_spec[1:])
+                start = max(0, len(zip_data) - suffix_len)
+                end = len(zip_data) - 1
+            else:
+                parts = range_spec.split("-")
+                start = int(parts[0])
+                end = int(parts[1]) if parts[1] else len(zip_data) - 1
             chunk = zip_data[start : end + 1]
             return Response(
                 chunk,

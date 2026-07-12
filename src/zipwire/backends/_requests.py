@@ -11,11 +11,13 @@ except ImportError as exc:
         "RequestsReader requires requests. Install it with: pip install zipwire[requests]"
     ) from exc
 
-from zipwire._constants import STREAM_CHUNK_SIZE
+from zipwire._constants import STREAM_CHUNK_SIZE, Whence
 from zipwire._errors import RangeRequestUnsupported
 
 if typing.TYPE_CHECKING:
     from collections.abc import Iterator
+
+    from zipwire._types import Headers
 
 
 class RequestsReader:
@@ -26,20 +28,36 @@ class RequestsReader:
         self._owns_session = session is None
         self._session = session or requests.Session()
 
-    def get_content_length(self) -> int:
+    def head(self) -> Headers:
         resp = self._session.head(self._url)
         resp.raise_for_status()
         if resp.headers.get("accept-ranges", "").lower() != "bytes":
             raise RangeRequestUnsupported(
                 f"Server does not support range requests for {self._url}"
             )
-        return int(resp.headers["content-length"])
+        return resp.headers
 
-    def read_range(self, offset: int, length: int) -> bytes:
-        end = offset + length - 1
-        resp = self._session.get(self._url, headers={"Range": f"bytes={offset}-{end}"})
+    def read_range(
+        self,
+        offset: int,
+        length: int,
+        whence: int = Whence.OFFSET,
+    ) -> tuple[bytes, Headers]:
+        match whence:
+            case Whence.OFFSET:
+                end = offset + length - 1
+                range_header = f"bytes={offset}-{end}"
+            case Whence.END:
+                range_header = f"bytes=-{length}"
+            case _:
+                raise ValueError(f"unsupported whence value: {whence!r}")
+        resp = self._session.get(self._url, headers={"Range": range_header})
         resp.raise_for_status()
-        return resp.content
+        if resp.status_code != 206:
+            raise RangeRequestUnsupported(
+                f"Server does not support range requests for {self._url}"
+            )
+        return resp.content, resp.headers
 
     def stream_range(self, offset: int, length: int) -> Iterator[bytes]:
         end = offset + length - 1

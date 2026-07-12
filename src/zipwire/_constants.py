@@ -28,6 +28,13 @@ LOCAL_FILE_HEADER_SIZE = 30  # zipfile.sizeFileHeader
 # ---------------------------------------------------------------------------
 
 
+class Whence(IntEnum):
+    """Seek origin for :meth:`read_range`."""
+
+    OFFSET = 0  # absolute offset
+    END = 2  # relative to end of resource
+
+
 class CompressionMethod(IntEnum):
     """ZIP compression method identifiers."""
 
@@ -124,3 +131,9 @@ MAX_EOCD_SEARCH = EOCD_SIZE + 65535  # max ZIP comment is 65 535 bytes
 ZIP64_EXTRA_FIELD_ID = 0x0001
 
 STREAM_CHUNK_SIZE = 2 * 1024 * 1024  # 2 MiB - default for stream_range backends
+
+# For small files, fetch the local file header and compressed data in a
+# single request instead of two.  The extra allowance covers the
+# variable-length filename and extra fields in the local header.
+PREFETCH_THRESHOLD = 50 * 1024  # 50 KiB
+PREFETCH_EXTRA = 1024  # generous allowance for filename + extra fields

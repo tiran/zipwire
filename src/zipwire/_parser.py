@@ -18,7 +18,6 @@ from zipwire._constants import (
     LOCAL_FILE_HEADER_SIGNATURE,
     LOCAL_FILE_HEADER_SIZE,
     LOCAL_FILE_HEADER_STRUCT,
-    MAX_EOCD_SEARCH,
     ZIP64_EOCD_LOCATOR_SIGNATURE,
     ZIP64_EOCD_LOCATOR_SIZE,
     ZIP64_EOCD_LOCATOR_STRUCT,
@@ -77,7 +76,7 @@ def find_eocd(tail: bytes, file_size: int) -> EOCDInfo:
     """Find and parse the End of Central Directory record.
 
     Args:
-        tail: The last `min(MAX_EOCD_SEARCH, file_size)` bytes of the file.
+        tail: The tail of the file (up to 65557 bytes).
         file_size: Total size of the ZIP file.
 
     Returns:
@@ -266,8 +265,3 @@ def parse_local_file_header(data: bytes) -> LocalHeaderInfo:
         filename_length=fields[9],
         extra_length=fields[10],
     )
-
-
-def eocd_search_length(file_size: int) -> int:
-    """How many bytes to fetch from the end of the file for EOCD search."""
-    return min(MAX_EOCD_SEARCH, file_size)

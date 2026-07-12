@@ -11,11 +11,13 @@ except ImportError as exc:
         "Httpx2AsyncReader requires httpx2. Install it with: pip install zipwire[httpx2]"
     ) from exc
 
-from zipwire._constants import STREAM_CHUNK_SIZE
+from zipwire._constants import STREAM_CHUNK_SIZE, Whence
 from zipwire._errors import RangeRequestUnsupported
 
 if typing.TYPE_CHECKING:
     from collections.abc import AsyncIterator
+
+    from zipwire._types import Headers
 
 
 class Httpx2AsyncReader:
@@ -26,20 +28,36 @@ class Httpx2AsyncReader:
         self._owns_client = client is None
         self._client = client or httpx2.AsyncClient()
 
-    async def get_content_length(self) -> int:
+    async def head(self) -> Headers:
         resp = await self._client.head(self._url)
         resp.raise_for_status()
         if resp.headers.get("accept-ranges", "").lower() != "bytes":
             raise RangeRequestUnsupported(
                 f"Server does not support range requests for {self._url}"
             )
-        return int(resp.headers["content-length"])
+        return resp.headers
 
-    async def read_range(self, offset: int, length: int) -> bytes:
-        end = offset + length - 1
-        resp = await self._client.get(self._url, headers={"Range": f"bytes={offset}-{end}"})
+    async def read_range(
+        self,
+        offset: int,
+        length: int,
+        whence: int = Whence.OFFSET,
+    ) -> tuple[bytes, Headers]:
+        match whence:
+            case Whence.OFFSET:
+                end = offset + length - 1
+                range_header = f"bytes={offset}-{end}"
+            case Whence.END:
+                range_header = f"bytes=-{length}"
+            case _:
+                raise ValueError(f"unsupported whence value: {whence!r}")
+        resp = await self._client.get(self._url, headers={"Range": range_header})
         resp.raise_for_status()
-        return resp.content
+        if resp.status_code != 206:
+            raise RangeRequestUnsupported(
+                f"Server does not support range requests for {self._url}"
+            )
+        return resp.content, resp.headers
 
     async def stream_range(self, offset: int, length: int) -> AsyncIterator[bytes]:
         end = offset + length - 1

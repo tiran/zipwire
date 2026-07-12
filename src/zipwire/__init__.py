@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from zipwire._async import AsyncRemoteZip
-from zipwire._constants import CompressionMethod
+from zipwire._constants import CompressionMethod, Whence
 from zipwire._errors import (
     BadZipFile,
     CRCMismatch,
@@ -13,7 +13,7 @@ from zipwire._errors import (
     ZipwireError,
 )
 from zipwire._sync import SyncRemoteZip
-from zipwire._types import AsyncReader, SyncReader, Writable
+from zipwire._types import AsyncReader, Headers, SyncReader, Writable
 from zipwire._zipinfo import RemoteZipInfo
 
 __all__ = [
@@ -23,11 +23,13 @@ __all__ = [
     "CRCMismatch",
     "CompressionMethod",
     "FileNotFoundInZip",
+    "Headers",
     "RangeRequestUnsupported",
     "RemoteZipInfo",
     "SyncReader",
     "SyncRemoteZip",
     "UnsupportedCompression",
+    "Whence",
     "Writable",
     "ZipwireError",
 ]

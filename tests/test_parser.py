@@ -6,13 +6,11 @@ import pytest
 
 from zipwire._constants import (
     CENTRAL_DIR_SIZE,
-    EOCD_SIZE,
     LOCAL_FILE_HEADER_SIZE,
 )
 from zipwire._errors import BadZipFile
 from zipwire._parser import (
     EOCDInfo,
-    eocd_search_length,
     find_eocd,
     parse_central_directory,
     parse_local_file_header,
@@ -94,16 +92,3 @@ class TestParseLocalFileHeader:
     def test_bad_signature(self) -> None:
         with pytest.raises(BadZipFile, match="signature"):
             parse_local_file_header(b"\x00" * LOCAL_FILE_HEADER_SIZE)
-
-
-class TestEocdSearchLength:
-    def test_small_file(self) -> None:
-        assert eocd_search_length(100) == 100
-
-    def test_large_file(self) -> None:
-        length = eocd_search_length(10_000_000)
-        assert length == EOCD_SIZE + 65535
-
-    def test_exact_max(self) -> None:
-        max_search = EOCD_SIZE + 65535
-        assert eocd_search_length(max_search) == max_search
