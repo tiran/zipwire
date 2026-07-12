@@ -45,7 +45,7 @@ class Urllib3Reader:
                 range_header = f"bytes={offset}-{end}"
             case Whence.END:
                 range_header = f"bytes=-{length}"
-            case _:
+            case _:  # pragma: no cover
                 raise ValueError(f"unsupported whence value: {whence!r}")
         resp = self._pool.request("GET", self._url, headers={"Range": range_header})
         if resp.status >= 400:

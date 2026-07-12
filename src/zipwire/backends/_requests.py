@@ -6,7 +6,7 @@ import typing
 
 try:
     import requests
-except ImportError as exc:
+except ImportError as exc:  # pragma: no cover
     raise ImportError(
         "RequestsReader requires requests. Install it with: pip install zipwire[requests]"
     ) from exc
@@ -49,7 +49,7 @@ class RequestsReader:
                 range_header = f"bytes={offset}-{end}"
             case Whence.END:
                 range_header = f"bytes=-{length}"
-            case _:
+            case _:  # pragma: no cover
                 raise ValueError(f"unsupported whence value: {whence!r}")
         resp = self._session.get(self._url, headers={"Range": range_header})
         resp.raise_for_status()

@@ -6,7 +6,7 @@ import typing
 
 try:
     import httpx2
-except ImportError as exc:
+except ImportError as exc:  # pragma: no cover
     raise ImportError(
         "Httpx2SyncReader requires httpx2. Install it with: pip install zipwire[httpx2]"
     ) from exc
@@ -49,7 +49,7 @@ class Httpx2SyncReader:
                 range_header = f"bytes={offset}-{end}"
             case Whence.END:
                 range_header = f"bytes=-{length}"
-            case _:
+            case _:  # pragma: no cover
                 raise ValueError(f"unsupported whence value: {whence!r}")
         resp = self._client.get(self._url, headers={"Range": range_header})
         resp.raise_for_status()

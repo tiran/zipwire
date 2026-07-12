@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import struct
+
 import pytest
 
 from zipwire._constants import (
     CENTRAL_DIR_SIZE,
+    EOCD_STRUCT,
     LOCAL_FILE_HEADER_SIZE,
+    ZIP64_EOCD_LOCATOR_STRUCT,
+    ZIP64_EOCD_STRUCT,
 )
 from zipwire._errors import BadZipFile
 from zipwire._parser import (
@@ -44,6 +49,143 @@ class TestFindEocd:
         with pytest.raises(BadZipFile, match="truncated"):
             find_eocd(data, len(data))
 
+    def test_zip64_eocd(self) -> None:
+        """Construct a tail with ZIP64 EOCD Record + Locator + EOCD."""
+        cd_entry_count = 5
+        cd_size = 1000
+        cd_offset = 2000
+
+        # ZIP64 EOCD Record (56 bytes)
+        zip64_eocd = ZIP64_EOCD_STRUCT.pack(
+            b"PK\x06\x06",  # signature
+            44,  # record size (remaining bytes after this field)
+            45,  # version made by
+            45,  # version needed
+            0,  # disk number
+            0,  # disk with CD start
+            cd_entry_count,  # entries this disk
+            cd_entry_count,  # entries total
+            cd_size,  # CD size
+            cd_offset,  # CD offset
+        )
+
+        # The ZIP64 EOCD record is at the beginning of our tail
+        # Its absolute offset in the file = tail_start + 0
+        file_size = 5000
+        tail_start = file_size - (len(zip64_eocd) + 20 + 22)  # zip64_eocd + locator + eocd
+        zip64_eocd_abs_offset = tail_start
+
+        # ZIP64 EOCD Locator (20 bytes)
+        locator = ZIP64_EOCD_LOCATOR_STRUCT.pack(
+            b"PK\x06\x07",  # signature
+            0,  # disk with ZIP64 EOCD
+            zip64_eocd_abs_offset,  # absolute offset of ZIP64 EOCD
+            1,  # total disks
+        )
+
+        # Regular EOCD with sentinel values (22 bytes)
+        eocd = EOCD_STRUCT.pack(
+            b"PK\x05\x06",
+            0,  # disk number
+            0,  # disk with CD start
+            0xFFFF,  # entries this disk (sentinel)
+            0xFFFF,  # entries total (sentinel)
+            0xFFFFFFFF,  # CD size (sentinel)
+            0xFFFFFFFF,  # CD offset (sentinel)
+            0,  # comment length
+        )
+
+        tail = zip64_eocd + locator + eocd
+        result = find_eocd(tail, file_size)
+        assert isinstance(result, EOCDInfo)
+        assert result.cd_entry_count == cd_entry_count
+        assert result.cd_size == cd_size
+        assert result.cd_offset == cd_offset
+
+    def test_zip64_locator_not_found(self) -> None:
+        """Not enough data before EOCD for the locator."""
+        # Regular EOCD with sentinel triggering ZIP64 path, but only EOCD data
+        eocd = EOCD_STRUCT.pack(
+            b"PK\x05\x06",
+            0,
+            0,
+            0xFFFF,
+            0xFFFF,
+            0xFFFFFFFF,
+            0xFFFFFFFF,
+            0,
+        )
+        # tail is exactly the EOCD - no room for locator before it
+        with pytest.raises(BadZipFile, match="locator not found"):
+            find_eocd(eocd, len(eocd))
+
+    def test_zip64_locator_bad_signature(self) -> None:
+        """Locator position exists but has wrong signature."""
+        eocd = EOCD_STRUCT.pack(
+            b"PK\x05\x06",
+            0,
+            0,
+            0xFFFF,
+            0xFFFF,
+            0xFFFFFFFF,
+            0xFFFFFFFF,
+            0,
+        )
+        # 20 bytes of zeros before EOCD (wrong locator signature)
+        tail = b"\x00" * 20 + eocd
+        with pytest.raises(BadZipFile, match="locator signature"):
+            find_eocd(tail, len(tail))
+
+    def test_zip64_eocd_outside_tail(self) -> None:
+        """Locator points to a ZIP64 EOCD offset outside the fetched tail."""
+        locator = ZIP64_EOCD_LOCATOR_STRUCT.pack(
+            b"PK\x06\x07",
+            0,
+            0,  # absurd offset (0, but tail_start will be > 0)
+            1,
+        )
+        eocd = EOCD_STRUCT.pack(
+            b"PK\x05\x06",
+            0,
+            0,
+            0xFFFF,
+            0xFFFF,
+            0xFFFFFFFF,
+            0xFFFFFFFF,
+            0,
+        )
+        tail = locator + eocd
+        # file_size much larger than tail, so zip64_eocd_rel will be negative
+        with pytest.raises(BadZipFile, match="outside"):
+            find_eocd(tail, 1_000_000)
+
+    def test_zip64_eocd_bad_signature(self) -> None:
+        """ZIP64 EOCD record exists at expected position but has wrong signature."""
+        file_size = 200
+        # Fake ZIP64 EOCD area (56 bytes of zeros - wrong signature)
+        fake_zip64_eocd = b"\x00" * 56
+        fake_zip64_eocd_abs_offset = file_size - (56 + 20 + 22)
+
+        locator = ZIP64_EOCD_LOCATOR_STRUCT.pack(
+            b"PK\x06\x07",
+            0,
+            fake_zip64_eocd_abs_offset,
+            1,
+        )
+        eocd = EOCD_STRUCT.pack(
+            b"PK\x05\x06",
+            0,
+            0,
+            0xFFFF,
+            0xFFFF,
+            0xFFFFFFFF,
+            0xFFFFFFFF,
+            0,
+        )
+        tail = fake_zip64_eocd + locator + eocd
+        with pytest.raises(BadZipFile, match="record signature"):
+            find_eocd(tail, file_size)
+
 
 class TestParseCentralDirectory:
     def test_stored_zip(self, stored_zip: bytes) -> None:
@@ -76,6 +218,32 @@ class TestParseCentralDirectory:
         data = b"\x00" * CENTRAL_DIR_SIZE
         with pytest.raises(BadZipFile, match="signature"):
             parse_central_directory(data, 1)
+
+    def test_entry_past_end_of_data(self) -> None:
+        """CD entry with filename_length=100 but only CENTRAL_DIR_SIZE bytes of data."""
+        # Build a valid CD header with a filename_length that exceeds remaining data
+        header = struct.pack(
+            "<4sHHHHHHIIIHHHHHII",
+            b"PK\x01\x02",  # signature
+            0,  # version_made_by
+            0,  # version_needed
+            0,  # flags
+            0,  # compression
+            0,  # mod_time
+            0,  # mod_date
+            0,  # crc32
+            0,  # compressed_size
+            0,  # uncompressed_size
+            100,  # filename_length (but no filename data follows)
+            0,  # extra_length
+            0,  # comment_length
+            0,  # disk_start
+            0,  # internal_attr
+            0,  # external_attr
+            0,  # header_offset
+        )
+        with pytest.raises(BadZipFile, match="past end"):
+            parse_central_directory(header, 1)
 
 
 class TestParseLocalFileHeader:
