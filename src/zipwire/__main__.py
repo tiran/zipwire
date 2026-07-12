@@ -70,5 +70,5 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(1)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

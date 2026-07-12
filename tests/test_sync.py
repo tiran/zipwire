@@ -196,3 +196,37 @@ class TestSyncRemoteZip:
             stdlib_data = {name: zf.read(name) for name in zf.namelist()}
 
         assert our_data == stdlib_data
+
+    def test_read_large_file(self, large_file_zip: bytes) -> None:
+        """File > 50 KiB bypasses prefetch, uses separate read_range for data."""
+        expected = bytes(range(256)) * 208
+        reader = MockSyncReader(large_file_zip)
+        with SyncRemoteZip(reader) as rz:
+            data = rz.read("large.bin")
+        assert data == expected
+
+    def test_read_into_large_file(self, large_file_zip: bytes) -> None:
+        """File > 50 KiB uses stream_range for streaming decompression."""
+        expected = bytes(range(256)) * 208
+        reader = MockSyncReader(large_file_zip)
+        with SyncRemoteZip(reader) as rz:
+            dest = io.BytesIO()
+            rz.read_into("large.bin", dest)
+        assert dest.getvalue() == expected
+
+    def test_read_zstandard(self, zstandard_zip: bytes) -> None:
+        reader = MockSyncReader(zstandard_zip)
+        with SyncRemoteZip(reader) as rz:
+            assert rz.read("hello.txt") == b"Hello, World!"
+            assert rz.read("repeated.txt") == b"AAAA" * 1000
+
+    def test_read_into_zstandard(self, zstandard_zip: bytes) -> None:
+        reader = MockSyncReader(zstandard_zip)
+        with SyncRemoteZip(reader) as rz:
+            dest = io.BytesIO()
+            rz.read_into("hello.txt", dest)
+            assert dest.getvalue() == b"Hello, World!"
+
+            dest = io.BytesIO()
+            rz.read_into("repeated.txt", dest)
+            assert dest.getvalue() == b"AAAA" * 1000

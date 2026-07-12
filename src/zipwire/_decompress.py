@@ -51,24 +51,24 @@ def decompress(
         case CompressionMethod.BZIP2:
             try:
                 import bz2
-            except ImportError:
+            except ImportError:  # pragma: no cover
                 raise UnsupportedCompression(method) from None
 
             result = bz2.decompress(data)
         case CompressionMethod.LZMA:
             try:
                 import lzma
-            except ImportError:
+            except ImportError:  # pragma: no cover
                 raise UnsupportedCompression(method) from None
 
             result = lzma.decompress(data)
         case CompressionMethod.ZSTANDARD:
             try:
                 import zstandard  # ty: ignore[unresolved-import]
-            except ImportError:
+            except ImportError:  # pragma: no cover
                 raise UnsupportedCompression(method) from None
 
-            result = zstandard.decompress(data)
+            result = zstandard.ZstdDecompressor().decompress(data, max_output_size=expected_size)
         case _:
             raise UnsupportedCompression(method)
 
@@ -97,7 +97,7 @@ class StreamingDecompressor:
             case CompressionMethod.BZIP2:
                 try:
                     import bz2
-                except ImportError:
+                except ImportError:  # pragma: no cover
                     raise UnsupportedCompression(method) from None
 
                 self._mode = _DecompressMode.INCREMENTAL
@@ -105,7 +105,7 @@ class StreamingDecompressor:
             case CompressionMethod.LZMA:
                 try:
                     import lzma
-                except ImportError:
+                except ImportError:  # pragma: no cover
                     raise UnsupportedCompression(method) from None
 
                 self._mode = _DecompressMode.INCREMENTAL
@@ -113,7 +113,7 @@ class StreamingDecompressor:
             case CompressionMethod.ZSTANDARD:
                 try:
                     import zstandard  # ty: ignore[unresolved-import]
-                except ImportError:
+                except ImportError:  # pragma: no cover
                     raise UnsupportedCompression(method) from None
 
                 self._mode = _DecompressMode.INCREMENTAL

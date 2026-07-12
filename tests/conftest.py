@@ -203,3 +203,23 @@ def comment_zip() -> bytes:
         zf.writestr("file.txt", b"content")
         zf.comment = b"This is a ZIP comment"
     return buf.getvalue()
+
+
+@pytest.fixture
+def large_file_zip() -> bytes:
+    """ZIP with a STORED file exceeding PREFETCH_THRESHOLD (50 KiB)."""
+    content = bytes(range(256)) * 208  # 53248 bytes = 52 KiB
+    return make_zip({"large.bin": content})
+
+
+@pytest.fixture
+def zstandard_zip() -> bytes:
+    """ZIP with ZSTANDARD-compressed files (requires Python 3.14+ and zstandard)."""
+    pytest.importorskip("zstandard")
+    return make_zip(
+        {
+            "hello.txt": b"Hello, World!",
+            "repeated.txt": b"AAAA" * 1000,
+        },
+        compression=zipfile.ZIP_ZSTANDARD,
+    )

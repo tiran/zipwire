@@ -6,7 +6,7 @@ import typing
 
 try:
     import aiohttp
-except ImportError as exc:
+except ImportError as exc:  # pragma: no cover
     raise ImportError(
         "AiohttpReader requires aiohttp. Install it with: pip install zipwire[aiohttp]"
     ) from exc
@@ -49,7 +49,7 @@ class AiohttpReader:
                 range_header = f"bytes={offset}-{end}"
             case Whence.END:
                 range_header = f"bytes=-{length}"
-            case _:
+            case _:  # pragma: no cover
                 raise ValueError(f"unsupported whence value: {whence!r}")
         headers = {"Range": range_header}
         async with self._session.get(self._url, headers=headers) as resp:

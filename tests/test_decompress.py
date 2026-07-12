@@ -151,3 +151,120 @@ def test_streaming_unsupported_method() -> None:
     dest = io.BytesIO()
     with pytest.raises(UnsupportedCompression, match="99"):
         StreamingDecompressor(method=99, expected_crc=0, dest=dest)
+
+
+# --- bzip2 ---
+
+
+def test_decompress_bzip2() -> None:
+    import bz2
+
+    original = b"Hello, bzip2 World!" * 50
+    compressed = bz2.compress(original)
+    crc = zlib.crc32(original) & 0xFFFFFFFF
+    result = decompress(compressed, method=12, expected_size=len(original), expected_crc=crc)
+    assert result == original
+
+
+def test_streaming_bzip2() -> None:
+    import bz2
+
+    original = b"Streaming bzip2 data" * 100
+    compressed = bz2.compress(original)
+    crc = zlib.crc32(original) & 0xFFFFFFFF
+    dest = io.BytesIO()
+    sd = StreamingDecompressor(method=12, expected_crc=crc, dest=dest)
+    sd.feed(compressed)
+    sd.finish()
+    assert dest.getvalue() == original
+
+
+def test_streaming_bzip2_chunked() -> None:
+    import bz2
+
+    original = b"ABCDEFGH" * 500
+    compressed = bz2.compress(original)
+    crc = zlib.crc32(original) & 0xFFFFFFFF
+    dest = io.BytesIO()
+    sd = StreamingDecompressor(method=12, expected_crc=crc, dest=dest)
+    for pos in range(0, len(compressed), 100):
+        sd.feed(compressed[pos : pos + 100])
+    sd.finish()
+    assert dest.getvalue() == original
+
+
+# --- lzma ---
+
+
+def test_decompress_lzma() -> None:
+    import lzma
+
+    original = b"Hello, LZMA World!" * 50
+    compressed = lzma.compress(original)
+    crc = zlib.crc32(original) & 0xFFFFFFFF
+    result = decompress(compressed, method=14, expected_size=len(original), expected_crc=crc)
+    assert result == original
+
+
+def test_streaming_lzma() -> None:
+    import lzma
+
+    original = b"Streaming LZMA data" * 100
+    compressed = lzma.compress(original)
+    crc = zlib.crc32(original) & 0xFFFFFFFF
+    dest = io.BytesIO()
+    sd = StreamingDecompressor(method=14, expected_crc=crc, dest=dest)
+    sd.feed(compressed)
+    sd.finish()
+    assert dest.getvalue() == original
+
+
+def test_streaming_lzma_chunked() -> None:
+    import lzma
+
+    original = b"ABCDEFGH" * 500
+    compressed = lzma.compress(original)
+    crc = zlib.crc32(original) & 0xFFFFFFFF
+    dest = io.BytesIO()
+    sd = StreamingDecompressor(method=14, expected_crc=crc, dest=dest)
+    for pos in range(0, len(compressed), 100):
+        sd.feed(compressed[pos : pos + 100])
+    sd.finish()
+    assert dest.getvalue() == original
+
+
+# --- zstandard ---
+
+
+def test_decompress_zstandard() -> None:
+    zstandard = pytest.importorskip("zstandard")
+    original = b"Hello, Zstandard World!" * 50
+    compressed = zstandard.compress(original)
+    crc = zlib.crc32(original) & 0xFFFFFFFF
+    result = decompress(compressed, method=93, expected_size=len(original), expected_crc=crc)
+    assert result == original
+
+
+def test_streaming_zstandard() -> None:
+    zstandard = pytest.importorskip("zstandard")
+    original = b"Streaming Zstandard data" * 100
+    compressed = zstandard.compress(original)
+    crc = zlib.crc32(original) & 0xFFFFFFFF
+    dest = io.BytesIO()
+    sd = StreamingDecompressor(method=93, expected_crc=crc, dest=dest)
+    sd.feed(compressed)
+    sd.finish()
+    assert dest.getvalue() == original
+
+
+def test_streaming_zstandard_chunked() -> None:
+    zstandard = pytest.importorskip("zstandard")
+    original = b"ABCDEFGH" * 500
+    compressed = zstandard.compress(original)
+    crc = zlib.crc32(original) & 0xFFFFFFFF
+    dest = io.BytesIO()
+    sd = StreamingDecompressor(method=93, expected_crc=crc, dest=dest)
+    for pos in range(0, len(compressed), 100):
+        sd.feed(compressed[pos : pos + 100])
+    sd.finish()
+    assert dest.getvalue() == original

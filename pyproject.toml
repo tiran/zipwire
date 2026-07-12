@@ -74,7 +74,16 @@ target-version = "py311"
 select = ["E", "W", "F", "I", "UP", "B", "SIM", "TCH", "RUF"]
 
 [tool.coverage.run]
+branch = true
+parallel = true
 source = ["zipwire"]
+omit = ["*/_version.py"]
+
+[tool.coverage.paths]
+source = [
+    "src/zipwire",
+    ".tox/*/lib/python*/site-packages/zipwire",
+]
 
 [tool.coverage.report]
 show_missing = true
