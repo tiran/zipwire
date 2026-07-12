@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import typing
 
 import urllib3
@@ -14,6 +15,8 @@ if typing.TYPE_CHECKING:
 
     from zipwire._types import Headers
 
+logger = logging.getLogger(__name__)
+
 
 class Urllib3Reader:
     """SyncReader implementation using urllib3.PoolManager."""
@@ -24,6 +27,7 @@ class Urllib3Reader:
         self._pool = pool or urllib3.PoolManager()
 
     def head(self) -> Headers:
+        logger.debug("HEAD %s", self._url)
         resp = self._pool.request("HEAD", self._url)
         if resp.status >= 400:
             raise OSError(f"HEAD request failed with status {resp.status}")
@@ -38,6 +42,7 @@ class Urllib3Reader:
         offset: int,
         length: int,
     ) -> tuple[bytes, Headers]:
+        logger.debug("GET %s %s (%d bytes)", self._url, range_header(offset, length), length)
         resp = self._pool.request(
             "GET", self._url, headers={"Range": range_header(offset, length)}
         )
@@ -50,6 +55,9 @@ class Urllib3Reader:
         return bytes(resp.data), resp.headers
 
     def stream_range(self, offset: int, length: int) -> Iterator[bytes]:
+        logger.debug(
+            "GET stream %s %s (%d bytes)", self._url, range_header(offset, length), length
+        )
         resp = self._pool.request(
             "GET",
             self._url,
