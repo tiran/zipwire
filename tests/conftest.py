@@ -8,6 +8,8 @@ import zipfile
 
 import pytest
 
+from zipwire._constants import Whence
+
 if typing.TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator
 
@@ -37,12 +39,32 @@ class MockSyncReader:
         self.closed = False
         self.read_count = 0
 
-    def get_content_length(self) -> int:
-        return len(self.data)
+    def head(self) -> dict[str, str]:
+        return {
+            "content-length": str(len(self.data)),
+            "accept-ranges": "bytes",
+        }
 
-    def read_range(self, offset: int, length: int) -> bytes:
+    def read_range(
+        self,
+        offset: int,
+        length: int,
+        whence: int = Whence.OFFSET,
+    ) -> tuple[bytes, dict[str, str]]:
         self.read_count += 1
-        return self.data[offset : offset + length]
+        total = len(self.data)
+        match whence:
+            case Whence.OFFSET:
+                chunk = self.data[offset : offset + length]
+                start = offset
+            case Whence.END:
+                chunk = self.data[-length:]
+                start = max(0, total - length)
+            case _:
+                raise ValueError(f"unsupported whence value: {whence!r}")
+        end = start + len(chunk) - 1
+        headers = {"content-range": f"bytes {start}-{end}/{total}"}
+        return chunk, headers
 
     def stream_range(self, offset: int, length: int) -> Iterator[bytes]:
         data = self.data[offset : offset + length]
@@ -63,12 +85,32 @@ class MockAsyncReader:
         self.closed = False
         self.read_count = 0
 
-    async def get_content_length(self) -> int:
-        return len(self.data)
+    async def head(self) -> dict[str, str]:
+        return {
+            "content-length": str(len(self.data)),
+            "accept-ranges": "bytes",
+        }
 
-    async def read_range(self, offset: int, length: int) -> bytes:
+    async def read_range(
+        self,
+        offset: int,
+        length: int,
+        whence: int = Whence.OFFSET,
+    ) -> tuple[bytes, dict[str, str]]:
         self.read_count += 1
-        return self.data[offset : offset + length]
+        total = len(self.data)
+        match whence:
+            case Whence.OFFSET:
+                chunk = self.data[offset : offset + length]
+                start = offset
+            case Whence.END:
+                chunk = self.data[-length:]
+                start = max(0, total - length)
+            case _:
+                raise ValueError(f"unsupported whence value: {whence!r}")
+        end = start + len(chunk) - 1
+        headers = {"content-range": f"bytes {start}-{end}/{total}"}
+        return chunk, headers
 
     async def stream_range(self, offset: int, length: int) -> AsyncIterator[bytes]:
         data = self.data[offset : offset + length]

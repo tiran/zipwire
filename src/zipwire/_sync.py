@@ -4,11 +4,16 @@ from __future__ import annotations
 
 import typing
 
-from zipwire._constants import LOCAL_FILE_HEADER_SIZE
+from zipwire._constants import (
+    LOCAL_FILE_HEADER_SIZE,
+    MAX_EOCD_SEARCH,
+    PREFETCH_EXTRA,
+    PREFETCH_THRESHOLD,
+    Whence,
+)
 from zipwire._decompress import StreamingDecompressor, decompress
 from zipwire._errors import FileNotFoundInZip
 from zipwire._parser import (
-    eocd_search_length,
     find_eocd,
     parse_central_directory,
     parse_local_file_header,
@@ -51,19 +56,16 @@ class SyncRemoteZip:
         if self._entries is not None:
             return
 
-        # Step 1: Get file size
-        self._file_size = self._reader.get_content_length()
+        # Step 1: Fetch the tail for EOCD search and get total file size
+        # in a single suffix-range request (saves one HEAD round-trip).
+        tail, headers = self._reader.read_range(0, MAX_EOCD_SEARCH, Whence.END)
+        self._file_size = int(headers["content-range"].rsplit("/", 1)[1])
 
-        # Step 2: Fetch the tail for EOCD search
-        search_len = eocd_search_length(self._file_size)
-        tail_offset = self._file_size - search_len
-        tail = self._reader.read_range(tail_offset, search_len)
-
-        # Step 3: Parse EOCD
+        # Step 2: Parse EOCD
         eocd = find_eocd(tail, self._file_size)
 
         # Step 4: Fetch and parse central directory
-        cd_data = self._reader.read_range(eocd.cd_offset, eocd.cd_size)
+        cd_data, _ = self._reader.read_range(eocd.cd_offset, eocd.cd_size)
         raw_entries = parse_central_directory(cd_data, eocd.cd_entry_count)
 
         # Step 5: Convert to RemoteZipInfo objects
@@ -95,6 +97,41 @@ class SyncRemoteZip:
         except KeyError:
             raise FileNotFoundInZip(name) from None
 
+    def _resolve_entry(
+        self,
+        name: str | RemoteZipInfo,
+    ) -> tuple[RemoteZipInfo, int, bytes | None] | None:
+        """Resolve *name* to a ZipInfo and compute the compressed data offset.
+
+        Returns ``None`` for directory entries (no data to extract),
+        or ``(info, data_offset, prefetched)`` for file entries.
+        For small files (compressed size <= 50 KiB) the local header and
+        compressed data are fetched in a single request and *prefetched*
+        contains the compressed bytes.  Otherwise *prefetched* is ``None``.
+        """
+        info = name if isinstance(name, RemoteZipInfo) else self.getinfo(name)
+        if info.is_dir():
+            return None
+
+        if info.compress_size <= PREFETCH_THRESHOLD:
+            # Small file: fetch local header + compressed data in one request.
+            fetch_size = LOCAL_FILE_HEADER_SIZE + PREFETCH_EXTRA + info.compress_size
+            buf, _ = self._reader.read_range(info.header_offset, fetch_size)
+            local_header = parse_local_file_header(buf)
+            data_start = LOCAL_FILE_HEADER_SIZE + local_header.data_offset_past_header
+            data_offset = info.header_offset + data_start
+            if data_start + info.compress_size <= len(buf):
+                return info, data_offset, buf[data_start : data_start + info.compress_size]
+            # Rare: variable fields exceeded PREFETCH_EXTRA, fall through
+        else:
+            buf, _ = self._reader.read_range(info.header_offset, LOCAL_FILE_HEADER_SIZE)
+            local_header = parse_local_file_header(buf)
+            data_offset = (
+                info.header_offset + LOCAL_FILE_HEADER_SIZE + local_header.data_offset_past_header
+            )
+
+        return info, data_offset, None
+
     def read(self, name: str | RemoteZipInfo) -> bytes:
         """Read and decompress a file from the archive.
 
@@ -104,27 +141,14 @@ class SyncRemoteZip:
         Returns:
             The decompressed file contents.
         """
-        info = name if isinstance(name, RemoteZipInfo) else self.getinfo(name)
-
-        # Directories have no data
-        if info.is_dir():
+        resolved = self._resolve_entry(name)
+        if resolved is None:
             return b""
-
-        # Step 1: Read the local file header to get the actual data offset
-        local_header_data = self._reader.read_range(info.header_offset, LOCAL_FILE_HEADER_SIZE)
-        local_header = parse_local_file_header(local_header_data)
-
-        # Step 2: Calculate the data offset
-        data_offset = (
-            info.header_offset + LOCAL_FILE_HEADER_SIZE + local_header.data_offset_past_header
-        )
-
-        # Step 3: Fetch the compressed data
-        compressed_data = self._reader.read_range(data_offset, info.compress_size)
-
-        # Step 4: Decompress and verify CRC
+        info, data_offset, prefetched = resolved
+        if prefetched is None:
+            prefetched, _ = self._reader.read_range(data_offset, info.compress_size)
         return decompress(
-            compressed_data,
+            prefetched,
             info.compress_type,
             info.file_size,
             info.CRC,
@@ -141,23 +165,14 @@ class SyncRemoteZip:
             name: Filename string or RemoteZipInfo object.
             dest: A writable file-like object (e.g. ``io.BytesIO``, open file).
         """
-        info = name if isinstance(name, RemoteZipInfo) else self.getinfo(name)
-
-        # Directories have no data
-        if info.is_dir():
+        resolved = self._resolve_entry(name)
+        if resolved is None:
             return
-
-        # Step 1: Read the local file header to get the actual data offset
-        local_header_data = self._reader.read_range(info.header_offset, LOCAL_FILE_HEADER_SIZE)
-        local_header = parse_local_file_header(local_header_data)
-
-        # Step 2: Calculate the data offset
-        data_offset = (
-            info.header_offset + LOCAL_FILE_HEADER_SIZE + local_header.data_offset_past_header
-        )
-
-        # Step 3: Stream compressed data and decompress into dest
+        info, data_offset, prefetched = resolved
         sd = StreamingDecompressor(info.compress_type, info.CRC, dest)
-        for chunk in self._reader.stream_range(data_offset, info.compress_size):
-            sd.feed(chunk)
+        if prefetched is not None:
+            sd.feed(prefetched)
+        else:
+            for chunk in self._reader.stream_range(data_offset, info.compress_size):
+                sd.feed(chunk)
         sd.finish()
