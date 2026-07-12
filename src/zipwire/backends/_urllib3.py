@@ -6,7 +6,7 @@ import typing
 
 import urllib3
 
-from zipwire._constants import STREAM_CHUNK_SIZE, Whence
+from zipwire._constants import STREAM_CHUNK_SIZE, range_header
 from zipwire._errors import RangeRequestUnsupported
 
 if typing.TYPE_CHECKING:
@@ -37,17 +37,10 @@ class Urllib3Reader:
         self,
         offset: int,
         length: int,
-        whence: int = Whence.OFFSET,
     ) -> tuple[bytes, Headers]:
-        match whence:
-            case Whence.OFFSET:
-                end = offset + length - 1
-                range_header = f"bytes={offset}-{end}"
-            case Whence.END:
-                range_header = f"bytes=-{length}"
-            case _:  # pragma: no cover
-                raise ValueError(f"unsupported whence value: {whence!r}")
-        resp = self._pool.request("GET", self._url, headers={"Range": range_header})
+        resp = self._pool.request(
+            "GET", self._url, headers={"Range": range_header(offset, length)}
+        )
         if resp.status >= 400:
             raise OSError(f"Range request failed with status {resp.status}")
         if resp.status != 206:
@@ -57,11 +50,10 @@ class Urllib3Reader:
         return bytes(resp.data), resp.headers
 
     def stream_range(self, offset: int, length: int) -> Iterator[bytes]:
-        end = offset + length - 1
         resp = self._pool.request(
             "GET",
             self._url,
-            headers={"Range": f"bytes={offset}-{end}"},
+            headers={"Range": range_header(offset, length)},
             preload_content=False,
         )
         if resp.status >= 400:

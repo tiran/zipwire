@@ -11,7 +11,7 @@ except ImportError as exc:  # pragma: no cover
         "AiohttpReader requires aiohttp. Install it with: pip install zipwire[aiohttp]"
     ) from exc
 
-from zipwire._constants import STREAM_CHUNK_SIZE, Whence
+from zipwire._constants import STREAM_CHUNK_SIZE, range_header
 from zipwire._errors import RangeRequestUnsupported
 
 if typing.TYPE_CHECKING:
@@ -41,17 +41,8 @@ class AiohttpReader:
         self,
         offset: int,
         length: int,
-        whence: int = Whence.OFFSET,
     ) -> tuple[bytes, Headers]:
-        match whence:
-            case Whence.OFFSET:
-                end = offset + length - 1
-                range_header = f"bytes={offset}-{end}"
-            case Whence.END:
-                range_header = f"bytes=-{length}"
-            case _:  # pragma: no cover
-                raise ValueError(f"unsupported whence value: {whence!r}")
-        headers = {"Range": range_header}
+        headers = {"Range": range_header(offset, length)}
         async with self._session.get(self._url, headers=headers) as resp:
             resp.raise_for_status()
             if resp.status != 206:
@@ -61,8 +52,7 @@ class AiohttpReader:
             return await resp.read(), resp.headers
 
     async def stream_range(self, offset: int, length: int) -> AsyncIterator[bytes]:
-        end = offset + length - 1
-        headers = {"Range": f"bytes={offset}-{end}"}
+        headers = {"Range": range_header(offset, length)}
         async with self._session.get(self._url, headers=headers) as resp:
             resp.raise_for_status()
             async for chunk in resp.content.iter_chunked(STREAM_CHUNK_SIZE):

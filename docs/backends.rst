@@ -84,7 +84,7 @@ protocol and pass an instance to :class:`~zipwire.SyncRemoteZip` or
 
    from collections.abc import Iterator
 
-   from zipwire import Headers, SyncReader, SyncRemoteZip, Whence
+   from zipwire import Headers, SyncReader, SyncRemoteZip
 
 
    class MyReader:
@@ -100,7 +100,6 @@ protocol and pass an instance to :class:`~zipwire.SyncRemoteZip` or
            self,
            offset: int,
            length: int,
-           whence: int = Whence.OFFSET,
        ) -> tuple[bytes, Headers]:
            ...  # GET with Range header, return (data, response_headers)
 
@@ -114,3 +113,51 @@ protocol and pass an instance to :class:`~zipwire.SyncRemoteZip` or
 
 See the :class:`~zipwire.SyncReader` and :class:`~zipwire.AsyncReader`
 protocol definitions for the full method signatures.
+
+Why only absolute byte ranges?
+-------------------------------
+
+HTTP range requests support two forms: absolute ranges
+(``bytes=<start>-<end>``) and suffix ranges (``bytes=-<N>``).  Suffix
+ranges request the last *N* bytes without requiring the client to know
+the total file size.  While RFC 7233 defines both forms, support varies
+across CDNs and cloud storage services:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 15 40
+
+   * - Service
+     - Suffix ranges
+     - Notes
+   * - AWS S3
+     - supported
+     - Full RFC 7233 compliance.
+   * - Google Cloud Storage
+     - supported
+     - Confirmed by GCS team.
+   * - Azure Blob Storage
+     - **not supported**
+     - Returns 200 with full object instead of 206.
+   * - Amazon CloudFront
+     - **not supported**
+     - Returns 200 with full object instead of 206.
+   * - Cloudflare R2
+     - supported
+     - Via S3-compatible and Workers API.
+   * - Fastly
+     - varies
+     - Some Fastly-fronted origins (e.g. PyPI) return 501.
+   * - Cloudflare CDN
+     - uncertain
+     - Undocumented; may pass through to origin.
+   * - Akamai
+     - likely supported
+     - General range support confirmed; suffix ranges undocumented.
+
+Because suffix ranges silently break on several major platforms (returning
+the full object or an error), zipwire uses only absolute byte ranges.  On
+first access it sends a HEAD request to learn the file size, then
+computes absolute offsets for all subsequent range requests.  This adds
+one round-trip compared to a suffix-range approach but works reliably
+everywhere.

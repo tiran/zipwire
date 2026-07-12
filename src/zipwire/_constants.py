@@ -28,13 +28,6 @@ LOCAL_FILE_HEADER_SIZE = 30  # zipfile.sizeFileHeader
 # ---------------------------------------------------------------------------
 
 
-class Whence(IntEnum):
-    """Seek origin for :meth:`read_range`."""
-
-    OFFSET = 0  # absolute offset
-    END = 2  # relative to end of resource
-
-
 class CompressionMethod(IntEnum):
     """ZIP compression method identifiers."""
 
@@ -137,3 +130,8 @@ STREAM_CHUNK_SIZE = 2 * 1024 * 1024  # 2 MiB - default for stream_range backends
 # variable-length filename and extra fields in the local header.
 PREFETCH_THRESHOLD = 50 * 1024  # 50 KiB
 PREFETCH_EXTRA = 1024  # generous allowance for filename + extra fields
+
+
+def range_header(offset: int, length: int) -> str:
+    """Return an HTTP Range header value for an absolute byte range."""
+    return f"bytes={offset}-{offset + length - 1}"
