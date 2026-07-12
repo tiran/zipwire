@@ -8,8 +8,6 @@ import zipfile
 
 import pytest
 
-from zipwire._constants import Whence
-
 if typing.TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator
 
@@ -49,21 +47,12 @@ class MockSyncReader:
         self,
         offset: int,
         length: int,
-        whence: int = Whence.OFFSET,
     ) -> tuple[bytes, dict[str, str]]:
         self.read_count += 1
         total = len(self.data)
-        match whence:
-            case Whence.OFFSET:
-                chunk = self.data[offset : offset + length]
-                start = offset
-            case Whence.END:
-                chunk = self.data[-length:]
-                start = max(0, total - length)
-            case _:
-                raise ValueError(f"unsupported whence value: {whence!r}")
-        end = start + len(chunk) - 1
-        headers = {"content-range": f"bytes {start}-{end}/{total}"}
+        chunk = self.data[offset : offset + length]
+        end = offset + len(chunk) - 1
+        headers = {"content-range": f"bytes {offset}-{end}/{total}"}
         return chunk, headers
 
     def stream_range(self, offset: int, length: int) -> Iterator[bytes]:
@@ -95,21 +84,12 @@ class MockAsyncReader:
         self,
         offset: int,
         length: int,
-        whence: int = Whence.OFFSET,
     ) -> tuple[bytes, dict[str, str]]:
         self.read_count += 1
         total = len(self.data)
-        match whence:
-            case Whence.OFFSET:
-                chunk = self.data[offset : offset + length]
-                start = offset
-            case Whence.END:
-                chunk = self.data[-length:]
-                start = max(0, total - length)
-            case _:
-                raise ValueError(f"unsupported whence value: {whence!r}")
-        end = start + len(chunk) - 1
-        headers = {"content-range": f"bytes {start}-{end}/{total}"}
+        chunk = self.data[offset : offset + length]
+        end = offset + len(chunk) - 1
+        headers = {"content-range": f"bytes {offset}-{end}/{total}"}
         return chunk, headers
 
     async def stream_range(self, offset: int, length: int) -> AsyncIterator[bytes]:

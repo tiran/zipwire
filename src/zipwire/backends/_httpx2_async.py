@@ -11,7 +11,7 @@ except ImportError as exc:  # pragma: no cover
         "Httpx2AsyncReader requires httpx2. Install it with: pip install zipwire[httpx2]"
     ) from exc
 
-from zipwire._constants import STREAM_CHUNK_SIZE, Whence
+from zipwire._constants import STREAM_CHUNK_SIZE, range_header
 from zipwire._errors import RangeRequestUnsupported
 
 if typing.TYPE_CHECKING:
@@ -41,17 +41,8 @@ class Httpx2AsyncReader:
         self,
         offset: int,
         length: int,
-        whence: int = Whence.OFFSET,
     ) -> tuple[bytes, Headers]:
-        match whence:
-            case Whence.OFFSET:
-                end = offset + length - 1
-                range_header = f"bytes={offset}-{end}"
-            case Whence.END:
-                range_header = f"bytes=-{length}"
-            case _:  # pragma: no cover
-                raise ValueError(f"unsupported whence value: {whence!r}")
-        resp = await self._client.get(self._url, headers={"Range": range_header})
+        resp = await self._client.get(self._url, headers={"Range": range_header(offset, length)})
         resp.raise_for_status()
         if resp.status_code != 206:
             raise RangeRequestUnsupported(
@@ -60,9 +51,8 @@ class Httpx2AsyncReader:
         return resp.content, resp.headers
 
     async def stream_range(self, offset: int, length: int) -> AsyncIterator[bytes]:
-        end = offset + length - 1
         async with self._client.stream(
-            "GET", self._url, headers={"Range": f"bytes={offset}-{end}"}
+            "GET", self._url, headers={"Range": range_header(offset, length)}
         ) as resp:
             resp.raise_for_status()
             async for chunk in resp.aiter_bytes(chunk_size=STREAM_CHUNK_SIZE):

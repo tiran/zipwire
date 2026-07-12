@@ -30,10 +30,6 @@ Protocols and Types
 .. autoclass:: zipwire.Writable
    :members:
 
-.. autoclass:: zipwire.Whence
-   :members:
-   :undoc-members:
-
 Backends
 --------
 

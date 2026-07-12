@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import typing
 
-from zipwire._constants import Whence
-
 if typing.TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator
 
@@ -38,20 +36,12 @@ class SyncReader(typing.Protocol):
         self,
         offset: int,
         length: int,
-        whence: int = Whence.OFFSET,
     ) -> tuple[bytes, Headers]:
-        """Read *length* bytes and return ``(data, headers)``.
+        """Read *length* bytes starting at absolute byte position *offset*.
 
-        *whence* controls how *offset* is interpreted:
+        Sends ``Range: bytes=<offset>-<offset+length-1>``.
 
-        * ``Whence.OFFSET`` (default) -- *offset* is an absolute byte position.
-          Sends ``Range: bytes=<offset>-<offset+length-1>``.
-        * ``Whence.END`` -- read the last *length* bytes (*offset* is
-          ignored).  Sends ``Range: bytes=-<length>``.
-
-        Returns the response body and the HTTP response headers.  The
-        ``Content-Range`` header can be used to determine the total
-        resource size.
+        Returns the response body and the HTTP response headers.
         """
         ...
 
@@ -81,20 +71,12 @@ class AsyncReader(typing.Protocol):
         self,
         offset: int,
         length: int,
-        whence: int = Whence.OFFSET,
     ) -> tuple[bytes, Headers]:
-        """Read *length* bytes and return ``(data, headers)``.
+        """Read *length* bytes starting at absolute byte position *offset*.
 
-        *whence* controls how *offset* is interpreted:
+        Sends ``Range: bytes=<offset>-<offset+length-1>``.
 
-        * ``Whence.OFFSET`` (default) -- *offset* is an absolute byte position.
-          Sends ``Range: bytes=<offset>-<offset+length-1>``.
-        * ``Whence.END`` -- read the last *length* bytes (*offset* is
-          ignored).  Sends ``Range: bytes=-<length>``.
-
-        Returns the response body and the HTTP response headers.  The
-        ``Content-Range`` header can be used to determine the total
-        resource size.
+        Returns the response body and the HTTP response headers.
         """
         ...
 

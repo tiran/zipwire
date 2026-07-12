@@ -9,7 +9,6 @@ from zipwire._constants import (
     MAX_EOCD_SEARCH,
     PREFETCH_EXTRA,
     PREFETCH_THRESHOLD,
-    Whence,
 )
 from zipwire._decompress import StreamingDecompressor, decompress
 from zipwire._errors import FileNotFoundInZip
@@ -56,10 +55,14 @@ class SyncRemoteZip:
         if self._entries is not None:
             return
 
-        # Step 1: Fetch the tail for EOCD search and get total file size
-        # in a single suffix-range request (saves one HEAD round-trip).
-        tail, headers = self._reader.read_range(0, MAX_EOCD_SEARCH, Whence.END)
-        self._file_size = int(headers["content-range"].rsplit("/", 1)[1])
+        # Step 1: HEAD to get total size, then fetch the tail for EOCD search.
+        # We use HEAD + absolute range instead of a single suffix-range
+        # request (bytes=-N) because some CDNs, notably Fastly which
+        # fronts PyPI, do not support suffix byte ranges and return 501.
+        head_headers = self._reader.head()
+        self._file_size = int(head_headers["content-length"])
+        tail_start = max(0, self._file_size - MAX_EOCD_SEARCH)
+        tail, _ = self._reader.read_range(tail_start, self._file_size - tail_start)
 
         # Step 2: Parse EOCD
         eocd = find_eocd(tail, self._file_size)
