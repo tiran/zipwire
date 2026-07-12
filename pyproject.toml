@@ -31,10 +31,10 @@ Source = "https://github.com/tiran/zipwire"
 Issues = "https://github.com/tiran/zipwire/issues"
 
 [project.optional-dependencies]
-httpx2 = ["httpx2>=2.0"]
+httpx2 = ["httpx2[http2]>=2.0"]
 aiohttp = ["aiohttp>=3.9"]
 requests = ["requests>=2.31"]
-all = ["httpx2>=2.0", "aiohttp>=3.9", "requests>=2.31"]
+all = ["httpx2[http2]>=2.0", "aiohttp>=3.9", "requests>=2.31"]
 
 [dependency-groups]
 dev = [

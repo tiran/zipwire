@@ -14,14 +14,14 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from zipwire.backends._aiohttp import AiohttpReader as AiohttpReader
-    from zipwire.backends._httpx2_async import Httpx2AsyncReader as Httpx2AsyncReader
-    from zipwire.backends._httpx2_sync import Httpx2SyncReader as Httpx2SyncReader
+    from zipwire.backends._httpx2 import Httpx2AsyncReader as Httpx2AsyncReader
+    from zipwire.backends._httpx2 import Httpx2SyncReader as Httpx2SyncReader
     from zipwire.backends._requests import RequestsReader as RequestsReader
     from zipwire.backends._urllib3 import Urllib3Reader as Urllib3Reader
 
 _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
-    "Httpx2SyncReader": ("zipwire.backends._httpx2_sync", "Httpx2SyncReader"),
-    "Httpx2AsyncReader": ("zipwire.backends._httpx2_async", "Httpx2AsyncReader"),
+    "Httpx2SyncReader": ("zipwire.backends._httpx2", "Httpx2SyncReader"),
+    "Httpx2AsyncReader": ("zipwire.backends._httpx2", "Httpx2AsyncReader"),
     "AiohttpReader": ("zipwire.backends._aiohttp", "AiohttpReader"),
     "Urllib3Reader": ("zipwire.backends._urllib3", "Urllib3Reader"),
     "RequestsReader": ("zipwire.backends._requests", "RequestsReader"),

@@ -11,31 +11,37 @@ Available backends
 
 .. list-table::
    :header-rows: 1
-   :widths: 15 25 10 20
+   :widths: 15 25 10 10 20
 
    * - Library
      - Class
      - Mode
+     - HTTP
      - Install extra
    * - urllib3
      - :class:`~zipwire.backends.Urllib3Reader`
      - sync
+     - 1.1
      - *(included)*
    * - httpx2
      - :class:`~zipwire.backends.Httpx2SyncReader`
      - sync
+     - 1.1, 2
      - ``httpx2``
    * - httpx2
      - :class:`~zipwire.backends.Httpx2AsyncReader`
      - async
+     - 1.1, 2
      - ``httpx2``
    * - requests
      - :class:`~zipwire.backends.RequestsReader`
      - sync
+     - 1.1
      - ``requests``
    * - aiohttp
      - :class:`~zipwire.backends.AiohttpReader`
      - async
+     - 1.1
      - ``aiohttp``
 
 Choosing a backend
@@ -47,7 +53,10 @@ Choosing a backend
   Best choice if your project already depends on aiohttp.
 - **Sync + async from one library** - install ``httpx2`` and use
   :class:`~zipwire.backends.Httpx2SyncReader` or
-  :class:`~zipwire.backends.Httpx2AsyncReader`.
+  :class:`~zipwire.backends.Httpx2AsyncReader`.  The ``httpx2`` extra includes
+  HTTP/2 support via the ``h2`` package.  When ``h2`` is available, HTTP/2 is
+  enabled automatically; pass ``http2=False`` to force HTTP/1.1 or
+  ``http2=True`` to require it.
 - **Requests integration** - use :class:`~zipwire.backends.RequestsReader`
   if your project already uses ``requests`` and you want to share sessions,
   authentication, or retry configuration.
