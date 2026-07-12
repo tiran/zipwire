@@ -65,6 +65,8 @@ packages = ["src/zipwire"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = ["integration: tests that hit real network services (deselect with '-m not integration')"]
+addopts = "-m 'not integration'"
 
 [tool.ruff]
 line-length = 99
