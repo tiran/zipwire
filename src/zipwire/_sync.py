@@ -11,7 +11,7 @@ from zipwire._constants import (
     PREFETCH_THRESHOLD,
 )
 from zipwire._decompress import StreamingDecompressor, decompress
-from zipwire._errors import FileNotFoundInZip
+from zipwire._errors import FileNotFoundInZip, FileTooLarge, RangeRequestUnsupported
 from zipwire._parser import (
     find_eocd,
     parse_central_directory,
@@ -60,18 +60,21 @@ class SyncRemoteZip:
         # request (bytes=-N) because some CDNs, notably Fastly which
         # fronts PyPI, do not support suffix byte ranges and return 501.
         head_headers = self._reader.head()
-        self._file_size = int(head_headers["content-length"])
+        cl = head_headers.get("content-length")
+        if cl is None:
+            raise RangeRequestUnsupported("Server did not return a Content-Length header")
+        self._file_size = int(cl)
         tail_start = max(0, self._file_size - MAX_EOCD_SEARCH)
         tail, _ = self._reader.read_range(tail_start, self._file_size - tail_start)
 
         # Step 2: Parse EOCD
         eocd = find_eocd(tail, self._file_size)
 
-        # Step 4: Fetch and parse central directory
+        # Step 3: Fetch and parse central directory
         cd_data, _ = self._reader.read_range(eocd.cd_offset, eocd.cd_size)
         raw_entries = parse_central_directory(cd_data, eocd.cd_entry_count)
 
-        # Step 5: Convert to RemoteZipInfo objects
+        # Step 4: Convert to RemoteZipInfo objects
         self._entries = [RemoteZipInfo._from_central_dir_entry(e) for e in raw_entries]
         self._name_index = {info.filename: info for info in self._entries}
 
@@ -135,19 +138,37 @@ class SyncRemoteZip:
 
         return info, data_offset, None
 
-    def read(self, name: str | RemoteZipInfo) -> bytes:
+    def read(
+        self,
+        name: str | RemoteZipInfo,
+        *,
+        max_file_size: int | None = None,
+    ) -> bytes:
         """Read and decompress a file from the archive.
 
         Args:
             name: Filename string or RemoteZipInfo object.
+            max_file_size: Optional limit on uncompressed size in bytes.
+                Raises :exc:`~zipwire.FileTooLarge` if the entry's
+                ``file_size`` exceeds this limit.
 
         Returns:
             The decompressed file contents.
+
+        .. warning::
+
+            This method loads the entire decompressed file into memory.
+            It checks the entry's declared ``file_size`` against
+            *max_file_size*, but a crafted archive may lie about its
+            uncompressed size.  Use :meth:`read_into` for defence in
+            depth: it enforces the size limit during decompression.
         """
         resolved = self._resolve_entry(name)
         if resolved is None:
             return b""
         info, data_offset, prefetched = resolved
+        if max_file_size is not None and info.file_size > max_file_size:
+            raise FileTooLarge(info.filename, info.file_size, max_file_size)
         if prefetched is None:
             prefetched, _ = self._reader.read_range(data_offset, info.compress_size)
         return decompress(
@@ -157,22 +178,44 @@ class SyncRemoteZip:
             info.CRC,
         )
 
-    def read_into(self, name: str | RemoteZipInfo, dest: Writable) -> None:
+    def read_into(
+        self,
+        name: str | RemoteZipInfo,
+        dest: Writable,
+        *,
+        max_file_size: int | None = None,
+    ) -> None:
         """Decompress a file from the archive into a writable destination.
 
         Unlike :meth:`read`, this truly streams: the compressed payload is
         fetched in chunks via :meth:`stream_range` and each chunk is
         decompressed and written immediately, keeping peak memory low.
 
+        The streaming decompressor also enforces *max_file_size* during
+        decompression, aborting if the actual output exceeds the limit
+        regardless of what the entry metadata claims.
+
         Args:
             name: Filename string or RemoteZipInfo object.
             dest: A writable file-like object (e.g. ``io.BytesIO``, open file).
+            max_file_size: Optional limit on uncompressed size in bytes.
+                Raises :exc:`~zipwire.FileTooLarge` if the entry's
+                ``file_size`` exceeds this limit, or if the actual
+                decompressed output exceeds it.
         """
         resolved = self._resolve_entry(name)
         if resolved is None:
             return
         info, data_offset, prefetched = resolved
-        sd = StreamingDecompressor(info.compress_type, info.CRC, dest)
+        if max_file_size is not None and info.file_size > max_file_size:
+            raise FileTooLarge(info.filename, info.file_size, max_file_size)
+        sd = StreamingDecompressor(
+            info.compress_type,
+            info.CRC,
+            dest,
+            filename=info.filename,
+            max_output_size=max_file_size,
+        )
         if prefetched is not None:
             sd.feed(prefetched)
         else:

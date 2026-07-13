@@ -77,7 +77,15 @@ class RequestsReader:
             allow_redirects=self._allow_redirects,
         )
         resp.raise_for_status()
-        yield from resp.iter_content(chunk_size=STREAM_CHUNK_SIZE)
+        if resp.status_code != 206:
+            resp.close()
+            raise RangeRequestUnsupported(
+                f"Server does not support range requests for {self._url}"
+            )
+        try:
+            yield from resp.iter_content(chunk_size=STREAM_CHUNK_SIZE)
+        finally:
+            resp.close()
 
     def close(self) -> None:
         if self._owns_session:

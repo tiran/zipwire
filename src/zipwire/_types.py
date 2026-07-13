@@ -10,10 +10,10 @@ if typing.TYPE_CHECKING:
 
 @typing.runtime_checkable
 class Headers(typing.Protocol):
-    """HTTP response headers returned by :meth:`read_range`.
+    """HTTP response headers returned by :meth:`head` and :meth:`read_range`.
 
     Implementations must support case-insensitive lookup or use
-    lower-case keys so that ``headers["content-range"]`` always works.
+    lower-case keys so that ``headers["content-length"]`` always works.
 
     All standard HTTP header mapping types satisfy this protocol,
     including ``urllib3.HTTPHeaderDict``, ``requests.structures.CaseInsensitiveDict``,

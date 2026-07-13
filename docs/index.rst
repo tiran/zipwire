@@ -7,6 +7,7 @@
 
    quickstart
    backends
+   security
 
 .. toctree::
    :maxdepth: 2
