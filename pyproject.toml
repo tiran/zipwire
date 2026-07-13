@@ -11,7 +11,7 @@ authors = [{ name = "Christian Heimes", email = "christian@python.org" }]
 requires-python = ">=3.11"
 readme = "README.md"
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
@@ -22,7 +22,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
     "Typing :: Typed",
 ]
-dependencies = ["urllib3>=2.0"]
+dependencies = ["urllib3>=2"]
 
 [project.urls]
 Homepage = "https://github.com/tiran/zipwire"
@@ -31,26 +31,26 @@ Source = "https://github.com/tiran/zipwire"
 Issues = "https://github.com/tiran/zipwire/issues"
 
 [project.optional-dependencies]
-httpx2 = ["httpx2[http2]>=2.0"]
+httpx2 = ["httpx2[http2]>=2"]
 aiohttp = ["aiohttp>=3.9"]
-requests = ["requests>=2.31"]
-all = ["httpx2[http2]>=2.0", "aiohttp>=3.9", "requests>=2.31"]
+requests = ["requests>=2.28"]
+all = ["httpx2[http2]>=2", "aiohttp>=3.9", "requests>=2.28"]
 
 [dependency-groups]
 dev = [
     "zipwire[all]",
-    "pytest>=8.0",
+    "pytest>=8",
     "pytest-asyncio>=0.24",
-    "pytest-httpserver>=1.1",
-    "coverage[toml]>=7.0",
+    "pytest-httpserver>=1",
+    "coverage[toml]>=7",
     "ruff>=0.11",
 ]
 docs = [
     "zipwire[all]",
-    "sphinx>=8.0",
-    "furo>=2024.1",
-    "sphinx-autobuild>=2024.1",
-    "myst-parser>=4.0",
+    "sphinx>=8",
+    "furo>=2024",
+    "sphinx-autobuild>=2024",
+    "myst-parser>=4",
 ]
 
 [tool.hatch.version]
