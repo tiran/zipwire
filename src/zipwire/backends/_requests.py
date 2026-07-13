@@ -26,14 +26,21 @@ logger = logging.getLogger(__name__)
 class RequestsReader:
     """SyncReader implementation using requests.Session."""
 
-    def __init__(self, url: str, *, session: requests.Session | None = None) -> None:
+    def __init__(
+        self,
+        url: str,
+        *,
+        session: requests.Session | None = None,
+        allow_redirects: bool = True,
+    ) -> None:
         self._url = url
         self._owns_session = session is None
         self._session = session or requests.Session()
+        self._allow_redirects = allow_redirects
 
     def head(self) -> Headers:
         logger.debug("HEAD %s", self._url)
-        resp = self._session.head(self._url)
+        resp = self._session.head(self._url, allow_redirects=self._allow_redirects)
         resp.raise_for_status()
         if resp.headers.get("accept-ranges", "").lower() != "bytes":
             raise RangeRequestUnsupported(
@@ -47,7 +54,11 @@ class RequestsReader:
         length: int,
     ) -> tuple[bytes, Headers]:
         logger.debug("GET %s %s (%d bytes)", self._url, range_header(offset, length), length)
-        resp = self._session.get(self._url, headers={"Range": range_header(offset, length)})
+        resp = self._session.get(
+            self._url,
+            headers={"Range": range_header(offset, length)},
+            allow_redirects=self._allow_redirects,
+        )
         resp.raise_for_status()
         if resp.status_code != 206:
             raise RangeRequestUnsupported(
@@ -60,7 +71,10 @@ class RequestsReader:
             "GET stream %s %s (%d bytes)", self._url, range_header(offset, length), length
         )
         resp = self._session.get(
-            self._url, headers={"Range": range_header(offset, length)}, stream=True
+            self._url,
+            headers={"Range": range_header(offset, length)},
+            stream=True,
+            allow_redirects=self._allow_redirects,
         )
         resp.raise_for_status()
         yield from resp.iter_content(chunk_size=STREAM_CHUNK_SIZE)

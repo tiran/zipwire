@@ -39,12 +39,13 @@ class Httpx2SyncReader:
         *,
         client: httpx2.Client | None = None,
         http2: bool | None = None,
+        allow_redirects: bool = True,
     ) -> None:
         self._url = url
         self._owns_client = client is None
         if http2 is None:
             http2 = _h2_available
-        self._client = client or httpx2.Client(http2=http2)
+        self._client = client or httpx2.Client(http2=http2, follow_redirects=allow_redirects)
 
     def head(self) -> Headers:
         logger.debug("HEAD %s", self._url)
@@ -94,12 +95,13 @@ class Httpx2AsyncReader:
         *,
         client: httpx2.AsyncClient | None = None,
         http2: bool | None = None,
+        allow_redirects: bool = True,
     ) -> None:
         self._url = url
         self._owns_client = client is None
         if http2 is None:
             http2 = _h2_available
-        self._client = client or httpx2.AsyncClient(http2=http2)
+        self._client = client or httpx2.AsyncClient(http2=http2, follow_redirects=allow_redirects)
 
     async def head(self) -> Headers:
         logger.debug("HEAD %s", self._url)
