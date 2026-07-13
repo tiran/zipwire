@@ -78,6 +78,11 @@ class Urllib3Reader:
         if resp.status >= 400:
             resp.release_conn()
             raise OSError(f"Range request failed with status {resp.status}")
+        if resp.status != 206:
+            resp.release_conn()
+            raise RangeRequestUnsupported(
+                f"Server does not support range requests for {self._url}"
+            )
         try:
             yield from resp.stream(STREAM_CHUNK_SIZE)
         finally:

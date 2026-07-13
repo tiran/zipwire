@@ -74,6 +74,10 @@ class AiohttpReader:
             self._url, headers=headers, allow_redirects=self._allow_redirects
         ) as resp:
             resp.raise_for_status()
+            if resp.status != 206:
+                raise RangeRequestUnsupported(
+                    f"Server does not support range requests for {self._url}"
+                )
             async for chunk in resp.content.iter_chunked(STREAM_CHUNK_SIZE):
                 yield chunk
 

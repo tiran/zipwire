@@ -32,6 +32,19 @@ class RangeRequestUnsupported(ZipwireError):
     """The HTTP server does not support range requests."""
 
 
+class FileTooLarge(ZipwireError):
+    """The entry's uncompressed size exceeds the configured limit."""
+
+    def __init__(self, filename: str, file_size: int, max_size: int) -> None:
+        self.filename = filename
+        self.file_size = file_size
+        self.max_size = max_size
+        super().__init__(
+            f"{filename!r}: uncompressed size {file_size} exceeds limit {max_size} "
+            f"(set max_file_size to increase or None to disable)"
+        )
+
+
 class FileNotFoundInZip(ZipwireError, KeyError):
     """The requested file was not found in the ZIP archive."""
 

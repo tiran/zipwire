@@ -43,9 +43,12 @@ class Httpx2SyncReader:
     ) -> None:
         self._url = url
         self._owns_client = client is None
-        if http2 is None:
-            http2 = _h2_available
-        self._client = client or httpx2.Client(http2=http2, follow_redirects=allow_redirects)
+        if client is not None:
+            self._client = client
+        else:
+            if http2 is None:
+                http2 = _h2_available
+            self._client = httpx2.Client(http2=http2, follow_redirects=allow_redirects)
 
     def head(self) -> Headers:
         logger.debug("HEAD %s", self._url)
@@ -79,6 +82,10 @@ class Httpx2SyncReader:
             "GET", self._url, headers={"Range": range_header(offset, length)}
         ) as resp:
             resp.raise_for_status()
+            if resp.status_code != 206:
+                raise RangeRequestUnsupported(
+                    f"Server does not support range requests for {self._url}"
+                )
             yield from resp.iter_bytes(chunk_size=STREAM_CHUNK_SIZE)
 
     def close(self) -> None:
@@ -99,9 +106,12 @@ class Httpx2AsyncReader:
     ) -> None:
         self._url = url
         self._owns_client = client is None
-        if http2 is None:
-            http2 = _h2_available
-        self._client = client or httpx2.AsyncClient(http2=http2, follow_redirects=allow_redirects)
+        if client is not None:
+            self._client = client
+        else:
+            if http2 is None:
+                http2 = _h2_available
+            self._client = httpx2.AsyncClient(http2=http2, follow_redirects=allow_redirects)
 
     async def head(self) -> Headers:
         logger.debug("HEAD %s", self._url)
@@ -135,6 +145,10 @@ class Httpx2AsyncReader:
             "GET", self._url, headers={"Range": range_header(offset, length)}
         ) as resp:
             resp.raise_for_status()
+            if resp.status_code != 206:
+                raise RangeRequestUnsupported(
+                    f"Server does not support range requests for {self._url}"
+                )
             async for chunk in resp.aiter_bytes(chunk_size=STREAM_CHUNK_SIZE):
                 yield chunk
 

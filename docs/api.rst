@@ -58,6 +58,7 @@ Exceptions
        ├── BadZipFile
        ├── UnsupportedCompression
        ├── CRCMismatch
+       ├── FileTooLarge
        ├── RangeRequestUnsupported
        └── FileNotFoundInZip (also inherits KeyError)
 
@@ -71,6 +72,9 @@ Exceptions
    :show-inheritance:
 
 .. autoexception:: zipwire.CRCMismatch
+   :show-inheritance:
+
+.. autoexception:: zipwire.FileTooLarge
    :show-inheritance:
 
 .. autoexception:: zipwire.RangeRequestUnsupported
