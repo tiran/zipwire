@@ -26,14 +26,21 @@ logger = logging.getLogger(__name__)
 class AiohttpReader:
     """AsyncReader implementation using aiohttp.ClientSession."""
 
-    def __init__(self, url: str, *, session: aiohttp.ClientSession | None = None) -> None:
+    def __init__(
+        self,
+        url: str,
+        *,
+        session: aiohttp.ClientSession | None = None,
+        allow_redirects: bool = True,
+    ) -> None:
         self._url = url
         self._owns_session = session is None
         self._session = session or aiohttp.ClientSession()
+        self._allow_redirects = allow_redirects
 
     async def head(self) -> Headers:
         logger.debug("HEAD %s", self._url)
-        async with self._session.head(self._url) as resp:
+        async with self._session.head(self._url, allow_redirects=self._allow_redirects) as resp:
             resp.raise_for_status()
             if resp.headers.get("accept-ranges", "").lower() != "bytes":
                 raise RangeRequestUnsupported(
@@ -48,7 +55,9 @@ class AiohttpReader:
     ) -> tuple[bytes, Headers]:
         logger.debug("GET %s %s (%d bytes)", self._url, range_header(offset, length), length)
         headers = {"Range": range_header(offset, length)}
-        async with self._session.get(self._url, headers=headers) as resp:
+        async with self._session.get(
+            self._url, headers=headers, allow_redirects=self._allow_redirects
+        ) as resp:
             resp.raise_for_status()
             if resp.status != 206:
                 raise RangeRequestUnsupported(
@@ -61,7 +70,9 @@ class AiohttpReader:
             "GET stream %s %s (%d bytes)", self._url, range_header(offset, length), length
         )
         headers = {"Range": range_header(offset, length)}
-        async with self._session.get(self._url, headers=headers) as resp:
+        async with self._session.get(
+            self._url, headers=headers, allow_redirects=self._allow_redirects
+        ) as resp:
             resp.raise_for_status()
             async for chunk in resp.content.iter_chunked(STREAM_CHUNK_SIZE):
                 yield chunk

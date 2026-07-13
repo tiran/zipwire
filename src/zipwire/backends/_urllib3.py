@@ -21,14 +21,21 @@ logger = logging.getLogger(__name__)
 class Urllib3Reader:
     """SyncReader implementation using urllib3.PoolManager."""
 
-    def __init__(self, url: str, *, pool: urllib3.PoolManager | None = None) -> None:
+    def __init__(
+        self,
+        url: str,
+        *,
+        pool: urllib3.PoolManager | None = None,
+        allow_redirects: bool = True,
+    ) -> None:
         self._url = url
         self._owns_pool = pool is None
         self._pool = pool or urllib3.PoolManager()
+        self._allow_redirects = allow_redirects
 
     def head(self) -> Headers:
         logger.debug("HEAD %s", self._url)
-        resp = self._pool.request("HEAD", self._url)
+        resp = self._pool.request("HEAD", self._url, redirect=self._allow_redirects)
         if resp.status >= 400:
             raise OSError(f"HEAD request failed with status {resp.status}")
         if resp.headers.get("accept-ranges", "").lower() != "bytes":
@@ -44,7 +51,10 @@ class Urllib3Reader:
     ) -> tuple[bytes, Headers]:
         logger.debug("GET %s %s (%d bytes)", self._url, range_header(offset, length), length)
         resp = self._pool.request(
-            "GET", self._url, headers={"Range": range_header(offset, length)}
+            "GET",
+            self._url,
+            headers={"Range": range_header(offset, length)},
+            redirect=self._allow_redirects,
         )
         if resp.status >= 400:
             raise OSError(f"Range request failed with status {resp.status}")
@@ -63,6 +73,7 @@ class Urllib3Reader:
             self._url,
             headers={"Range": range_header(offset, length)},
             preload_content=False,
+            redirect=self._allow_redirects,
         )
         if resp.status >= 400:
             resp.release_conn()
