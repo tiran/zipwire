@@ -12,10 +12,12 @@ import pytest
 has_httpx2 = find_spec("httpx2") is not None
 has_requests = find_spec("requests") is not None
 has_aiohttp = find_spec("aiohttp") is not None
+has_zstd = find_spec("compression") is not None and find_spec("compression.zstd") is not None
 
 needs_httpx2 = pytest.mark.skipif(not has_httpx2, reason="httpx2 not installed")
 needs_requests = pytest.mark.skipif(not has_requests, reason="requests not installed")
 needs_aiohttp = pytest.mark.skipif(not has_aiohttp, reason="aiohttp not installed")
+needs_zstd = pytest.mark.skipif(not has_zstd, reason="compression.zstd not available")
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -228,8 +230,9 @@ def large_file_zip() -> bytes:
 
 @pytest.fixture
 def zstandard_zip() -> bytes:
-    """ZIP with ZSTANDARD-compressed files (requires Python 3.14+ and zstandard)."""
-    pytest.importorskip("zstandard")
+    """ZIP with ZSTANDARD-compressed files (requires Python 3.14+)."""
+    if not hasattr(zipfile, "ZIP_ZSTANDARD"):
+        pytest.skip("zipfile.ZIP_ZSTANDARD not available (requires Python 3.14+)")
     return make_zip(
         {
             "hello.txt": b"Hello, World!",

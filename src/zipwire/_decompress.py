@@ -64,11 +64,11 @@ def decompress(
             result = lzma.decompress(data)
         case CompressionMethod.ZSTANDARD:
             try:
-                import zstandard  # ty: ignore[unresolved-import]
+                from compression.zstd import decompress as _zstd_decompress
             except ImportError:  # pragma: no cover
                 raise UnsupportedCompression(method) from None
 
-            result = zstandard.ZstdDecompressor().decompress(data, max_output_size=expected_size)
+            result = _zstd_decompress(data)
         case _:
             raise UnsupportedCompression(method)
 
@@ -128,12 +128,12 @@ class StreamingDecompressor:
                 self._dobj = lzma.LZMADecompressor()
             case CompressionMethod.ZSTANDARD:
                 try:
-                    import zstandard  # ty: ignore[unresolved-import]
+                    from compression.zstd import ZstdDecompressor
                 except ImportError:  # pragma: no cover
                     raise UnsupportedCompression(method) from None
 
                 self._mode = _DecompressMode.INCREMENTAL
-                self._dobj = zstandard.ZstdDecompressor().decompressobj()
+                self._dobj = ZstdDecompressor()
             case _:
                 raise UnsupportedCompression(method)
 
