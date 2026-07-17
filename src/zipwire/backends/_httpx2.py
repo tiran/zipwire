@@ -7,7 +7,7 @@ import typing
 
 try:
     import httpx2
-except ImportError as exc:  # pragma: no cover
+except ImportError as exc:
     raise ImportError(
         "httpx2 readers require httpx2. Install it with: pip install zipwire[httpx2]"
     ) from exc
@@ -16,7 +16,7 @@ try:
     import h2  # noqa: F401
 
     _h2_available = True
-except ImportError:  # pragma: no cover
+except ImportError:
     _h2_available = False
 
 from zipwire._constants import STREAM_CHUNK_SIZE, range_header

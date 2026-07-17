@@ -7,7 +7,7 @@ import typing
 
 try:
     import aiohttp
-except ImportError as exc:  # pragma: no cover
+except ImportError as exc:
     raise ImportError(
         "AiohttpReader requires aiohttp. Install it with: pip install zipwire[aiohttp]"
     ) from exc

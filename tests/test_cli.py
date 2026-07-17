@@ -9,7 +9,7 @@ import zipfile
 import pytest
 from werkzeug import Request, Response
 
-from tests.conftest import make_zip
+from tests.conftest import make_zip, needs_aiohttp, needs_httpx2, needs_requests
 from zipwire.__main__ import _print_table, main
 from zipwire._parser import find_eocd, parse_central_directory
 from zipwire._zipinfo import RemoteZipInfo
@@ -133,6 +133,7 @@ class TestMainCli:
         assert "hello.txt" in captured.out
         assert "subdir/data.bin" in captured.out
 
+    @needs_requests
     def test_requests(self, cli_zip_server, capsys) -> None:
         url = cli_zip_server.url_for("/cli.zip")
         main([url, "-b", "requests"])
@@ -140,6 +141,7 @@ class TestMainCli:
         assert "hello.txt" in captured.out
         assert "subdir/data.bin" in captured.out
 
+    @needs_httpx2
     def test_httpx2(self, cli_zip_server, capsys) -> None:
         url = cli_zip_server.url_for("/cli.zip")
         main([url, "-b", "httpx2"])
@@ -147,6 +149,7 @@ class TestMainCli:
         assert "hello.txt" in captured.out
         assert "subdir/data.bin" in captured.out
 
+    @needs_aiohttp
     def test_aiohttp(self, cli_zip_server, capsys) -> None:
         url = cli_zip_server.url_for("/cli.zip")
         main([url, "-b", "aiohttp"])

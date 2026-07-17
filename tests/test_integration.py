@@ -6,14 +6,18 @@ import io
 
 import pytest
 
+from tests.conftest import has_aiohttp, has_httpx2, has_requests
 from zipwire import AsyncRemoteZip, SyncRemoteZip
-from zipwire.backends import (
-    AiohttpReader,
-    Httpx2AsyncReader,
-    Httpx2SyncReader,
-    RequestsReader,
-    Urllib3Reader,
-)
+from zipwire.backends import Urllib3Reader
+
+if has_httpx2:
+    from zipwire.backends import Httpx2AsyncReader, Httpx2SyncReader
+
+if has_requests:
+    from zipwire.backends import RequestsReader
+
+if has_aiohttp:
+    from zipwire.backends import AiohttpReader
 
 PIP_WHL_URL = (
     "https://files.pythonhosted.org/packages/"
@@ -30,8 +34,18 @@ PULP_WHL_URL = (
 
 pytestmark = pytest.mark.integration
 
-SYNC_READERS = [Urllib3Reader, Httpx2SyncReader, RequestsReader]
-ASYNC_READERS = [Httpx2AsyncReader, AiohttpReader]
+SYNC_READERS = [Urllib3Reader]
+ASYNC_READERS = []
+
+if has_httpx2:
+    SYNC_READERS.append(Httpx2SyncReader)
+    ASYNC_READERS.append(Httpx2AsyncReader)
+
+if has_requests:
+    SYNC_READERS.append(RequestsReader)
+
+if has_aiohttp:
+    ASYNC_READERS.append(AiohttpReader)
 
 
 def _metadata_path(url: str) -> str:

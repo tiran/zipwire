@@ -5,8 +5,42 @@ from __future__ import annotations
 import io
 import typing
 import zipfile
+from importlib.util import find_spec
 
 import pytest
+
+has_httpx2 = find_spec("httpx2") is not None
+has_requests = find_spec("requests") is not None
+has_aiohttp = find_spec("aiohttp") is not None
+
+needs_httpx2 = pytest.mark.skipif(not has_httpx2, reason="httpx2 not installed")
+needs_requests = pytest.mark.skipif(not has_requests, reason="requests not installed")
+needs_aiohttp = pytest.mark.skipif(not has_aiohttp, reason="aiohttp not installed")
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--all-backends",
+        action="store_true",
+        default=False,
+        help="Assert that all optional backends (httpx2, requests, aiohttp) are installed.",
+    )
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    if config.getoption("all_backends"):
+        missing = []
+        if not has_httpx2:
+            missing.append("httpx2")
+        if not has_requests:
+            missing.append("requests")
+        if not has_aiohttp:
+            missing.append("aiohttp")
+        if missing:
+            raise pytest.UsageError(
+                f"--all-backends: missing optional backends: {', '.join(missing)}"
+            )
+
 
 if typing.TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator
