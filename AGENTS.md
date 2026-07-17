@@ -28,6 +28,18 @@ entries on the fly.
 - **No local imports.** All imports must be at the top of the file.
   Do not use `from foo import bar` inside functions, methods, or test bodies.
 
+## Documentation rules
+
+- **Keep docs in sync with API changes.** Whenever you add, remove, rename,
+  or change the signature of any public API (classes, functions, exceptions,
+  type aliases, backends), you **must** update all of these:
+  1. `src/zipwire/__init__.py` -- module docstring (usage examples, backend
+     list) and `__all__`.
+  2. `docs/` -- Sphinx sources (`api.rst`, `backends.rst`, `quickstart.rst`,
+     and any other affected `.rst` file).
+- After editing docs, verify they build cleanly:
+  `uvx --with tox-uv tox run -e docs`
+
 ## Git rules
 
 - **Always** sign off commits with `git commit -s`.
