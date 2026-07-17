@@ -4,23 +4,37 @@ from __future__ import annotations
 
 import io
 
-import aiohttp
-import httpx2
 import pytest
-import requests
 import urllib3
 from werkzeug import Request, Response
 
-from tests.conftest import make_zip
+from tests.conftest import (
+    has_aiohttp,
+    has_httpx2,
+    has_requests,
+    make_zip,
+    needs_aiohttp,
+    needs_httpx2,
+    needs_requests,
+)
 from zipwire import AsyncRemoteZip, SyncRemoteZip, backends
 from zipwire._errors import RangeRequestUnsupported
-from zipwire.backends import (
-    AiohttpReader,
-    Httpx2AsyncReader,
-    Httpx2SyncReader,
-    RequestsReader,
-    Urllib3Reader,
-)
+from zipwire.backends import Urllib3Reader
+
+if has_httpx2:
+    import httpx2
+
+    from zipwire.backends import Httpx2AsyncReader, Httpx2SyncReader
+
+if has_requests:
+    import requests
+
+    from zipwire.backends import RequestsReader
+
+if has_aiohttp:
+    import aiohttp
+
+    from zipwire.backends import AiohttpReader
 
 
 def range_handler(zip_data: bytes):
@@ -99,6 +113,7 @@ def error_server(httpserver):
     return httpserver
 
 
+@needs_httpx2
 class TestHttpx2SyncBackend:
     def test_read_file(self, zip_server, test_zip_data) -> None:
         url = zip_server.url_for("/test.zip")
@@ -159,6 +174,7 @@ class TestHttpx2SyncBackend:
                 assert rz.read("hello.txt") == b"Hello from test!"
 
 
+@needs_httpx2
 class TestHttpx2AsyncBackend:
     async def test_read_file(self, zip_server) -> None:
         url = zip_server.url_for("/test.zip")
@@ -287,6 +303,7 @@ class TestUrllib3Backend:
             pool.clear()
 
 
+@needs_requests
 class TestRequestsBackend:
     def test_read_file(self, zip_server) -> None:
         url = zip_server.url_for("/test.zip")
@@ -339,6 +356,7 @@ class TestRequestsBackend:
                 assert rz.read("hello.txt") == b"Hello from test!"
 
 
+@needs_aiohttp
 class TestAiohttpBackend:
     async def test_read_file(self, zip_server) -> None:
         url = zip_server.url_for("/test.zip")
@@ -403,3 +421,18 @@ class TestBackendsInit:
         assert "AiohttpReader" in names
         assert "Urllib3Reader" in names
         assert "RequestsReader" in names
+
+    @pytest.mark.skipif(has_httpx2, reason="httpx2 is installed")
+    def test_httpx2_import_error(self) -> None:
+        with pytest.raises(ImportError, match="httpx2"):
+            backends.Httpx2SyncReader  # noqa: B018
+
+    @pytest.mark.skipif(has_requests, reason="requests is installed")
+    def test_requests_import_error(self) -> None:
+        with pytest.raises(ImportError, match="requests"):
+            backends.RequestsReader  # noqa: B018
+
+    @pytest.mark.skipif(has_aiohttp, reason="aiohttp is installed")
+    def test_aiohttp_import_error(self) -> None:
+        with pytest.raises(ImportError, match="aiohttp"):
+            backends.AiohttpReader  # noqa: B018

@@ -29,10 +29,8 @@ def _print_table(infos: list[RemoteZipInfo], skip_dirs: bool) -> None:
 def _run_sync(url: str, backend: str, skip_dirs: bool) -> None:
     from zipwire import backends
 
-    reader_cls = {
-        "urllib3": backends.Urllib3Reader,
-        "requests": backends.RequestsReader,
-    }[backend]
+    names = {"urllib3": "Urllib3Reader", "requests": "RequestsReader"}
+    reader_cls = getattr(backends, names[backend])
     with SyncRemoteZip(reader_cls(url)) as rz:
         _print_table(rz.infolist(), skip_dirs)
 
@@ -40,10 +38,8 @@ def _run_sync(url: str, backend: str, skip_dirs: bool) -> None:
 async def _run_async(url: str, backend: str, skip_dirs: bool) -> None:
     from zipwire import backends
 
-    reader_cls = {
-        "httpx2": backends.Httpx2AsyncReader,
-        "aiohttp": backends.AiohttpReader,
-    }[backend]
+    names = {"httpx2": "Httpx2AsyncReader", "aiohttp": "AiohttpReader"}
+    reader_cls = getattr(backends, names[backend])
     async with AsyncRemoteZip(reader_cls(url)) as rz:
         _print_table(await rz.infolist(), skip_dirs)
 

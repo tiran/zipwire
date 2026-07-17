@@ -7,7 +7,7 @@ import typing
 
 try:
     import requests
-except ImportError as exc:  # pragma: no cover
+except ImportError as exc:
     raise ImportError(
         "RequestsReader requires requests. Install it with: pip install zipwire[requests]"
     ) from exc
