@@ -9,7 +9,7 @@ import pytest
 
 from tests.conftest import MockAsyncReader
 from zipwire import AsyncRemoteZip
-from zipwire._errors import FileNotFoundInZip
+from zipwire._errors import FileNotFoundInZip, FileTooLarge, RangeRequestUnsupported
 from zipwire._zipinfo import RemoteZipInfo
 
 
@@ -233,3 +233,24 @@ class TestAsyncRemoteZip:
             dest = io.BytesIO()
             await rz.read_into("repeated.txt", dest)
             assert dest.getvalue() == b"AAAA" * 1000
+
+    @pytest.mark.parametrize("method", ["read", "read_into"])
+    async def test_file_too_large(self, stored_zip: bytes, method: str) -> None:
+        reader = MockAsyncReader(stored_zip)
+        async with AsyncRemoteZip(reader) as rz:
+            with pytest.raises(FileTooLarge):
+                if method == "read":
+                    await rz.read("hello.txt", max_file_size=1)
+                else:
+                    await rz.read_into("hello.txt", io.BytesIO(), max_file_size=1)
+
+    async def test_no_content_length(self, stored_zip: bytes) -> None:
+        reader = MockAsyncReader(stored_zip)
+
+        async def _head_no_cl() -> dict[str, str]:
+            return {"accept-ranges": "bytes"}
+
+        reader.head = _head_no_cl
+        async with AsyncRemoteZip(reader) as rz:
+            with pytest.raises(RangeRequestUnsupported, match="Content-Length"):
+                await rz.namelist()
