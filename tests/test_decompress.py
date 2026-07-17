@@ -7,8 +7,12 @@ import zlib
 
 import pytest
 
+from tests.conftest import has_zstd, needs_zstd
 from zipwire._decompress import StreamingDecompressor, decompress
 from zipwire._errors import CRCMismatch, UnsupportedCompression
+
+if has_zstd:
+    from compression import zstd
 
 # --- decompress() ---
 
@@ -236,19 +240,19 @@ def test_streaming_lzma_chunked() -> None:
 # --- zstandard ---
 
 
+@needs_zstd
 def test_decompress_zstandard() -> None:
-    zstandard = pytest.importorskip("zstandard")
     original = b"Hello, Zstandard World!" * 50
-    compressed = zstandard.compress(original)
+    compressed = zstd.compress(original)
     crc = zlib.crc32(original) & 0xFFFFFFFF
     result = decompress(compressed, method=93, expected_size=len(original), expected_crc=crc)
     assert result == original
 
 
+@needs_zstd
 def test_streaming_zstandard() -> None:
-    zstandard = pytest.importorskip("zstandard")
     original = b"Streaming Zstandard data" * 100
-    compressed = zstandard.compress(original)
+    compressed = zstd.compress(original)
     crc = zlib.crc32(original) & 0xFFFFFFFF
     dest = io.BytesIO()
     sd = StreamingDecompressor(method=93, expected_crc=crc, dest=dest)
@@ -257,10 +261,10 @@ def test_streaming_zstandard() -> None:
     assert dest.getvalue() == original
 
 
+@needs_zstd
 def test_streaming_zstandard_chunked() -> None:
-    zstandard = pytest.importorskip("zstandard")
     original = b"ABCDEFGH" * 500
-    compressed = zstandard.compress(original)
+    compressed = zstd.compress(original)
     crc = zlib.crc32(original) & 0xFFFFFFFF
     dest = io.BytesIO()
     sd = StreamingDecompressor(method=93, expected_crc=crc, dest=dest)
@@ -268,3 +272,31 @@ def test_streaming_zstandard_chunked() -> None:
         sd.feed(compressed[pos : pos + 100])
     sd.finish()
     assert dest.getvalue() == original
+
+
+@needs_zstd
+def test_decompress_zstandard_binary() -> None:
+    original = bytes(range(256))
+    compressed = zstd.compress(original)
+    crc = zlib.crc32(original) & 0xFFFFFFFF
+    result = decompress(compressed, method=93, expected_size=len(original), expected_crc=crc)
+    assert result == original
+
+
+@needs_zstd
+def test_decompress_zstandard_crc_mismatch() -> None:
+    original = b"Hello, Zstandard World!"
+    compressed = zstd.compress(original)
+    with pytest.raises(CRCMismatch):
+        decompress(compressed, method=93, expected_size=len(original), expected_crc=0xDEADBEEF)
+
+
+@needs_zstd
+def test_streaming_zstandard_crc_mismatch() -> None:
+    original = b"Hello, Zstandard World!"
+    compressed = zstd.compress(original)
+    dest = io.BytesIO()
+    sd = StreamingDecompressor(method=93, expected_crc=0xDEADBEEF, dest=dest)
+    sd.feed(compressed)
+    with pytest.raises(CRCMismatch):
+        sd.finish()
