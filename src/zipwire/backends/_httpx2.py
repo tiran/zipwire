@@ -16,7 +16,7 @@ try:
     import h2  # noqa: F401
 
     _h2_available = True
-except ImportError:
+except ImportError:  # pragma: no cover
     _h2_available = False
 
 from zipwire._constants import STREAM_CHUNK_SIZE, range_header
@@ -46,7 +46,7 @@ class Httpx2SyncReader:
         if client is not None:
             self._client = client
         else:
-            if http2 is None:
+            if http2 is None:  # pragma: no cover
                 http2 = _h2_available
             self._client = httpx2.Client(http2=http2, follow_redirects=allow_redirects)
 
@@ -109,7 +109,7 @@ class Httpx2AsyncReader:
         if client is not None:
             self._client = client
         else:
-            if http2 is None:
+            if http2 is None:  # pragma: no cover
                 http2 = _h2_available
             self._client = httpx2.AsyncClient(http2=http2, follow_redirects=allow_redirects)
 

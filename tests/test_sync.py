@@ -9,7 +9,7 @@ import pytest
 
 from tests.conftest import MockSyncReader
 from zipwire import SyncRemoteZip
-from zipwire._errors import FileNotFoundInZip
+from zipwire._errors import FileNotFoundInZip, FileTooLarge, RangeRequestUnsupported
 from zipwire._zipinfo import RemoteZipInfo
 
 
@@ -230,3 +230,21 @@ class TestSyncRemoteZip:
             dest = io.BytesIO()
             rz.read_into("repeated.txt", dest)
             assert dest.getvalue() == b"AAAA" * 1000
+
+    @pytest.mark.parametrize("method", ["read", "read_into"])
+    def test_file_too_large(self, stored_zip: bytes, method: str) -> None:
+        reader = MockSyncReader(stored_zip)
+        with SyncRemoteZip(reader) as rz, pytest.raises(FileTooLarge):
+            if method == "read":
+                rz.read("hello.txt", max_file_size=1)
+            else:
+                rz.read_into("hello.txt", io.BytesIO(), max_file_size=1)
+
+    def test_no_content_length(self, stored_zip: bytes) -> None:
+        reader = MockSyncReader(stored_zip)
+        reader.head = lambda: {"accept-ranges": "bytes"}
+        with (
+            SyncRemoteZip(reader) as rz,
+            pytest.raises(RangeRequestUnsupported, match="Content-Length"),
+        ):
+            rz.namelist()

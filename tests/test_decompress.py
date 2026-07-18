@@ -9,7 +9,7 @@ import pytest
 
 from tests.conftest import has_zstd, needs_zstd
 from zipwire._decompress import StreamingDecompressor, decompress
-from zipwire._errors import CRCMismatch, UnsupportedCompression
+from zipwire._errors import CRCMismatch, FileTooLarge, UnsupportedCompression
 
 if has_zstd:
     from compression import zstd
@@ -300,3 +300,15 @@ def test_streaming_zstandard_crc_mismatch() -> None:
     sd.feed(compressed)
     with pytest.raises(CRCMismatch):
         sd.finish()
+
+
+# --- FileTooLarge ---
+
+
+def test_streaming_file_too_large() -> None:
+    data = b"A" * 100
+    crc = zlib.crc32(data) & 0xFFFFFFFF
+    dest = io.BytesIO()
+    sd = StreamingDecompressor(method=0, expected_crc=crc, dest=dest, max_output_size=10)
+    with pytest.raises(FileTooLarge):
+        sd.feed(data)

@@ -166,6 +166,13 @@ class TestHttpx2SyncBackend:
             reader.read_range(0, 10)
         reader.close()
 
+    def test_stream_range_not_206(self, no_range_server) -> None:
+        url = no_range_server.url_for("/norange.zip")
+        reader = Httpx2SyncReader(url)
+        with pytest.raises(RangeRequestUnsupported):
+            list(reader.stream_range(0, 10))
+        reader.close()
+
     def test_external_client(self, zip_server) -> None:
         url = zip_server.url_for("/test.zip")
         with httpx2.Client() as client:
@@ -219,6 +226,13 @@ class TestHttpx2AsyncBackend:
             await reader.read_range(0, 10)
         await reader.close()
 
+    async def test_stream_range_not_206(self, no_range_server) -> None:
+        url = no_range_server.url_for("/norange.zip")
+        reader = Httpx2AsyncReader(url)
+        with pytest.raises(RangeRequestUnsupported):
+            _ = [chunk async for chunk in reader.stream_range(0, 10)]
+        await reader.close()
+
     async def test_external_client(self, zip_server) -> None:
         url = zip_server.url_for("/test.zip")
         async with httpx2.AsyncClient() as client:
@@ -269,6 +283,13 @@ class TestUrllib3Backend:
         reader = Urllib3Reader(url)
         with pytest.raises(RangeRequestUnsupported):
             reader.read_range(0, 10)
+        reader.close()
+
+    def test_stream_range_not_206(self, no_range_server) -> None:
+        url = no_range_server.url_for("/norange.zip")
+        reader = Urllib3Reader(url)
+        with pytest.raises(RangeRequestUnsupported):
+            list(reader.stream_range(0, 10))
         reader.close()
 
     def test_head_http_error(self, error_server) -> None:
@@ -348,6 +369,13 @@ class TestRequestsBackend:
             reader.read_range(0, 10)
         reader.close()
 
+    def test_stream_range_not_206(self, no_range_server) -> None:
+        url = no_range_server.url_for("/norange.zip")
+        reader = RequestsReader(url)
+        with pytest.raises(RangeRequestUnsupported):
+            list(reader.stream_range(0, 10))
+        reader.close()
+
     def test_external_session(self, zip_server) -> None:
         url = zip_server.url_for("/test.zip")
         with requests.Session() as session:
@@ -399,6 +427,13 @@ class TestAiohttpBackend:
         reader = AiohttpReader(url)
         with pytest.raises(RangeRequestUnsupported):
             await reader.read_range(0, 10)
+        await reader.close()
+
+    async def test_stream_range_not_206(self, no_range_server) -> None:
+        url = no_range_server.url_for("/norange.zip")
+        reader = AiohttpReader(url)
+        with pytest.raises(RangeRequestUnsupported):
+            _ = [chunk async for chunk in reader.stream_range(0, 10)]
         await reader.close()
 
     async def test_external_session(self, zip_server) -> None:
