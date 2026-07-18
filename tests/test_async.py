@@ -8,7 +8,7 @@ import zipfile
 import pytest
 
 from tests.conftest import MockAsyncReader
-from zipwire import AsyncRemoteZip
+from zipwire import AsyncRemoteZip, EOCDInfo
 from zipwire._errors import FileNotFoundInZip, FileTooLarge, RangeRequestUnsupported
 from zipwire._zipinfo import RemoteZipInfo
 
@@ -94,6 +94,15 @@ class TestAsyncRemoteZip:
         async with AsyncRemoteZip(reader) as rz:
             await rz.namelist()
         assert reader.closed
+
+    async def test_get_eocd_info(self, stored_zip: bytes) -> None:
+        reader = MockAsyncReader(stored_zip)
+        async with AsyncRemoteZip(reader) as rz:
+            eocd = await rz.get_eocd_info()
+        assert isinstance(eocd, EOCDInfo)
+        assert eocd.cd_entry_count == 2
+        assert eocd.cd_size > 0
+        assert 0 <= eocd.cd_offset < len(stored_zip)
 
     async def test_lazy_loading(self, stored_zip: bytes) -> None:
         reader = MockAsyncReader(stored_zip)

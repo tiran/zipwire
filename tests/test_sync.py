@@ -8,7 +8,7 @@ import zipfile
 import pytest
 
 from tests.conftest import MockSyncReader
-from zipwire import SyncRemoteZip
+from zipwire import EOCDInfo, SyncRemoteZip
 from zipwire._errors import FileNotFoundInZip, FileTooLarge, RangeRequestUnsupported
 from zipwire._zipinfo import RemoteZipInfo
 
@@ -36,6 +36,15 @@ class TestSyncRemoteZip:
             info = rz.getinfo("hello.txt")
         assert info.filename == "hello.txt"
         assert info.file_size == 13
+
+    def test_eocd_info(self, stored_zip: bytes) -> None:
+        reader = MockSyncReader(stored_zip)
+        with SyncRemoteZip(reader) as rz:
+            eocd = rz.eocd_info
+        assert isinstance(eocd, EOCDInfo)
+        assert eocd.cd_entry_count == 2
+        assert eocd.cd_size > 0
+        assert 0 <= eocd.cd_offset < len(stored_zip)
 
     def test_getinfo_not_found(self, stored_zip: bytes) -> None:
         reader = MockSyncReader(stored_zip)
