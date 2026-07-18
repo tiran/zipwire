@@ -13,6 +13,7 @@ from zipwire._constants import (
 from zipwire._decompress import StreamingDecompressor, decompress
 from zipwire._errors import FileNotFoundInZip, FileTooLarge, RangeRequestUnsupported
 from zipwire._parser import (
+    EOCDInfo,
     find_eocd,
     parse_central_directory,
     parse_local_file_header,
@@ -39,6 +40,7 @@ class AsyncRemoteZip:
         self._entries: list[RemoteZipInfo] | None = None
         self._name_index: dict[str, RemoteZipInfo] | None = None
         self._file_size: int | None = None
+        self._eocd: EOCDInfo | None = None
 
     async def __aenter__(self) -> AsyncRemoteZip:
         return self
@@ -49,6 +51,16 @@ class AsyncRemoteZip:
     async def close(self) -> None:
         """Close the underlying reader."""
         await self._reader.close()
+
+    async def get_eocd_info(self) -> EOCDInfo:
+        """Return the parsed End of Central Directory record.
+
+        Contains ``cd_offset``, ``cd_size``, and ``cd_entry_count``.
+        Triggers lazy loading on first access.
+        """
+        await self._ensure_loaded()
+        assert self._eocd is not None
+        return self._eocd
 
     async def _ensure_loaded(self) -> None:
         """Fetch and parse the central directory if not already done."""
@@ -69,6 +81,7 @@ class AsyncRemoteZip:
 
         # Step 2: Parse EOCD
         eocd = find_eocd(tail, self._file_size)
+        self._eocd = eocd
 
         # Step 3: Fetch and parse central directory
         cd_data, _ = await self._reader.read_range(eocd.cd_offset, eocd.cd_size)

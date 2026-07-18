@@ -73,6 +73,7 @@ from zipwire._errors import (
     UnsupportedCompression,
     ZipwireError,
 )
+from zipwire._parser import EOCDInfo
 from zipwire._sync import SyncRemoteZip
 from zipwire._types import AsyncReader, Headers, SyncReader, Writable
 from zipwire._zipinfo import RemoteZipInfo
@@ -83,6 +84,7 @@ __all__ = [
     "BadZipFile",
     "CRCMismatch",
     "CompressionMethod",
+    "EOCDInfo",
     "FileNotFoundInZip",
     "FileTooLarge",
     "Headers",

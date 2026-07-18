@@ -15,6 +15,9 @@ Core
 .. autoclass:: zipwire.RemoteZipInfo
    :show-inheritance:
 
+.. autoclass:: zipwire.EOCDInfo
+   :members:
+
 Protocols and Types
 -------------------
 
