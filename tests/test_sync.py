@@ -51,6 +51,12 @@ class TestSyncRemoteZip:
         assert eocd.cd_size > 0
         assert 0 <= eocd.cd_offset < len(stored_zip)
 
+    def test_url(self, stored_zip: bytes) -> None:
+        reader = MockSyncReader(stored_zip, url="https://example.com/archive.zip")
+        with SyncRemoteZip(reader) as rz:
+            assert rz.url == "https://example.com/archive.zip"
+            assert reader.url == "https://example.com/archive.zip"
+
     def test_getinfo_not_found(self, stored_zip: bytes) -> None:
         reader = MockSyncReader(stored_zip)
         with SyncRemoteZip(reader) as rz, pytest.raises(FileNotFoundInZip):

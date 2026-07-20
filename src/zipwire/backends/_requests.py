@@ -38,6 +38,11 @@ class RequestsReader:
         self._session = session or requests.Session()
         self._allow_redirects = allow_redirects
 
+    @property
+    def url(self) -> str:
+        """The target URL for this reader."""
+        return self._url
+
     def head(self) -> Headers:
         logger.debug("HEAD %s", self._url)
         resp = self._session.head(self._url, allow_redirects=self._allow_redirects)
