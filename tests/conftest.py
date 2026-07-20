@@ -68,10 +68,15 @@ def make_zip(files: dict[str, bytes], *, compression: int = zipfile.ZIP_STORED) 
 class MockSyncReader:
     """A SyncReader backed by in-memory bytes (simulates a remote ZIP)."""
 
-    def __init__(self, data: bytes) -> None:
+    def __init__(self, data: bytes, url: str = "") -> None:
         self.data = data
         self.closed = False
         self.read_count = 0
+        self._url = url
+
+    @property
+    def url(self) -> str:
+        return self._url
 
     def head(self) -> dict[str, str]:
         return {
@@ -105,10 +110,15 @@ class MockSyncReader:
 class MockAsyncReader:
     """An AsyncReader backed by in-memory bytes."""
 
-    def __init__(self, data: bytes) -> None:
+    def __init__(self, data: bytes, url: str = "") -> None:
         self.data = data
         self.closed = False
         self.read_count = 0
+        self._url = url
+
+    @property
+    def url(self) -> str:
+        return self._url
 
     async def head(self) -> dict[str, str]:
         return {

@@ -32,6 +32,11 @@ class Headers(typing.Protocol):
 class SyncReader(typing.Protocol):
     """Protocol for synchronous HTTP range-request readers."""
 
+    @property
+    def url(self) -> str:
+        """The target URL for this reader."""
+        ...
+
     def read_range(
         self,
         offset: int,
@@ -66,6 +71,11 @@ class SyncReader(typing.Protocol):
 @typing.runtime_checkable
 class AsyncReader(typing.Protocol):
     """Protocol for asynchronous HTTP range-request readers."""
+
+    @property
+    def url(self) -> str:
+        """The target URL for this reader."""
+        ...
 
     async def read_range(
         self,

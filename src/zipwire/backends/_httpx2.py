@@ -50,6 +50,11 @@ class Httpx2SyncReader:
                 http2 = _h2_available
             self._client = httpx2.Client(http2=http2, follow_redirects=allow_redirects)
 
+    @property
+    def url(self) -> str:
+        """The target URL for this reader."""
+        return self._url
+
     def head(self) -> Headers:
         logger.debug("HEAD %s", self._url)
         resp = self._client.head(self._url)
@@ -112,6 +117,11 @@ class Httpx2AsyncReader:
             if http2 is None:  # pragma: no cover
                 http2 = _h2_available
             self._client = httpx2.AsyncClient(http2=http2, follow_redirects=allow_redirects)
+
+    @property
+    def url(self) -> str:
+        """The target URL for this reader."""
+        return self._url
 
     async def head(self) -> Headers:
         logger.debug("HEAD %s", self._url)

@@ -38,6 +38,11 @@ class AiohttpReader:
         self._session = session or aiohttp.ClientSession()
         self._allow_redirects = allow_redirects
 
+    @property
+    def url(self) -> str:
+        """The target URL for this reader."""
+        return self._url
+
     async def head(self) -> Headers:
         logger.debug("HEAD %s", self._url)
         async with self._session.head(self._url, allow_redirects=self._allow_redirects) as resp:

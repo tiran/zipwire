@@ -109,6 +109,12 @@ class TestAsyncRemoteZip:
         assert eocd.cd_size > 0
         assert 0 <= eocd.cd_offset < len(stored_zip)
 
+    async def test_url(self, stored_zip: bytes) -> None:
+        reader = MockAsyncReader(stored_zip, url="https://example.com/archive.zip")
+        async with AsyncRemoteZip(reader) as rz:
+            assert rz.url == "https://example.com/archive.zip"
+            assert reader.url == "https://example.com/archive.zip"
+
     async def test_loading_on_enter(self, stored_zip: bytes) -> None:
         reader = MockAsyncReader(stored_zip)
         rz = AsyncRemoteZip(reader)

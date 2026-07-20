@@ -63,6 +63,11 @@ class AsyncRemoteZip:
         await self._reader.close()
 
     @property
+    def url(self) -> str:
+        """The target URL of the underlying reader."""
+        return self._reader.url
+
+    @property
     def file_size(self) -> int:
         """Total size of the remote archive in bytes."""
         if self._file_size is None:

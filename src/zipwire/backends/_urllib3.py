@@ -33,6 +33,11 @@ class Urllib3Reader:
         self._pool = pool or urllib3.PoolManager()
         self._allow_redirects = allow_redirects
 
+    @property
+    def url(self) -> str:
+        """The target URL for this reader."""
+        return self._url
+
     def head(self) -> Headers:
         logger.debug("HEAD %s", self._url)
         resp = self._pool.request("HEAD", self._url, redirect=self._allow_redirects)
