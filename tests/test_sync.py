@@ -37,6 +37,11 @@ class TestSyncRemoteZip:
         assert info.filename == "hello.txt"
         assert info.file_size == 13
 
+    def test_file_size(self, stored_zip: bytes) -> None:
+        reader = MockSyncReader(stored_zip)
+        with SyncRemoteZip(reader) as rz:
+            assert rz.file_size == len(stored_zip)
+
     def test_eocd_info(self, stored_zip: bytes) -> None:
         reader = MockSyncReader(stored_zip)
         with SyncRemoteZip(reader) as rz:
@@ -103,14 +108,32 @@ class TestSyncRemoteZip:
             rz.namelist()
         assert reader.closed
 
-    def test_lazy_loading(self, stored_zip: bytes) -> None:
+    def test_loading_on_enter(self, stored_zip: bytes) -> None:
         reader = MockSyncReader(stored_zip)
         rz = SyncRemoteZip(reader)
         # No requests made yet
         assert reader.read_count == 0
-        # First access triggers loading
-        rz.namelist()
-        assert reader.read_count > 0
+        # __enter__ triggers loading
+        with rz:
+            assert reader.read_count > 0
+            # _ensure_loaded cannot be called twice
+            with pytest.raises(RuntimeError, match="must not be called more than once"):
+                rz._ensure_loaded()
+
+    def test_not_loaded_raises(self, stored_zip: bytes) -> None:
+        reader = MockSyncReader(stored_zip)
+        rz = SyncRemoteZip(reader)
+        for call in [
+            lambda: rz.file_size,
+            lambda: rz.eocd_info,
+            lambda: rz.namelist(),
+            lambda: rz.infolist(),
+            lambda: rz.getinfo("hello.txt"),
+            lambda: rz.read("hello.txt"),
+            lambda: rz.read_into("hello.txt", io.BytesIO()),
+        ]:
+            with pytest.raises(RuntimeError, match="not loaded"):
+                call()
         rz.close()
 
     def test_unicode_filenames(self, unicode_zip: bytes) -> None:
@@ -252,8 +275,5 @@ class TestSyncRemoteZip:
     def test_no_content_length(self, stored_zip: bytes) -> None:
         reader = MockSyncReader(stored_zip)
         reader.head = lambda: {"accept-ranges": "bytes"}
-        with (
-            SyncRemoteZip(reader) as rz,
-            pytest.raises(RangeRequestUnsupported, match="Content-Length"),
-        ):
-            rz.namelist()
+        with pytest.raises(RangeRequestUnsupported, match="Content-Length"), SyncRemoteZip(reader):
+            pass

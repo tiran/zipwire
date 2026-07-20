@@ -4,6 +4,18 @@ API Reference
 Core
 ----
 
+.. note::
+
+   ``SyncRemoteZip`` and ``AsyncRemoteZip`` **must** be used as context
+   managers.  The archive is loaded on entry and all internal state is
+   cleared on exit.  Calling methods like :meth:`~zipwire.SyncRemoteZip.read`
+   outside a ``with`` / ``async with`` block raises :exc:`RuntimeError`.
+
+.. warning::
+
+   ``SyncRemoteZip`` and ``AsyncRemoteZip`` instances are **not thread-safe**.
+   Each thread or task should use its own instance.
+
 .. autoclass:: zipwire.SyncRemoteZip
    :members:
    :special-members: __enter__, __exit__

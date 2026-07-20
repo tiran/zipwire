@@ -23,9 +23,14 @@ from zipwire._zipinfo import RemoteZipInfo
 if typing.TYPE_CHECKING:
     from zipwire._types import AsyncReader, Writable
 
+_NOT_LOADED = "archive not loaded; use as an async context manager"
+
 
 class AsyncRemoteZip:
     """Read files from a remote ZIP archive using async HTTP range requests.
+
+    Must be used as an async context manager.  The archive is loaded on
+    entry and all internal state is cleared on exit.  Not thread-safe.
 
     Usage::
 
@@ -43,29 +48,40 @@ class AsyncRemoteZip:
         self._eocd: EOCDInfo | None = None
 
     async def __aenter__(self) -> AsyncRemoteZip:
+        await self._ensure_loaded()
         return self
 
     async def __aexit__(self, *exc: object) -> None:
+        self._entries = None
+        self._name_index = None
+        self._file_size = None
+        self._eocd = None
         await self.close()
 
     async def close(self) -> None:
         """Close the underlying reader."""
         await self._reader.close()
 
+    @property
+    def file_size(self) -> int:
+        """Total size of the remote archive in bytes."""
+        if self._file_size is None:
+            raise RuntimeError(_NOT_LOADED)
+        return self._file_size
+
     async def get_eocd_info(self) -> EOCDInfo:
         """Return the parsed End of Central Directory record.
 
         Contains ``cd_offset``, ``cd_size``, and ``cd_entry_count``.
-        Triggers lazy loading on first access.
         """
-        await self._ensure_loaded()
-        assert self._eocd is not None
+        if self._eocd is None:
+            raise RuntimeError(_NOT_LOADED)
         return self._eocd
 
     async def _ensure_loaded(self) -> None:
-        """Fetch and parse the central directory if not already done."""
+        """Fetch and parse the central directory."""
         if self._entries is not None:
-            return
+            raise RuntimeError("_ensure_loaded() must not be called more than once")
 
         # Step 1: HEAD to get total size, then fetch the tail for EOCD search.
         # We use HEAD + absolute range instead of a single suffix-range
@@ -93,14 +109,14 @@ class AsyncRemoteZip:
 
     async def infolist(self) -> list[RemoteZipInfo]:
         """Return a list of RemoteZipInfo objects for all files in the archive."""
-        await self._ensure_loaded()
-        assert self._entries is not None
+        if self._entries is None:
+            raise RuntimeError(_NOT_LOADED)
         return list(self._entries)
 
     async def namelist(self) -> list[str]:
         """Return a list of filenames in the archive."""
-        await self._ensure_loaded()
-        assert self._entries is not None
+        if self._entries is None:
+            raise RuntimeError(_NOT_LOADED)
         return [info.filename for info in self._entries]
 
     async def getinfo(self, name: str) -> RemoteZipInfo:
@@ -109,8 +125,8 @@ class AsyncRemoteZip:
         Raises:
             FileNotFoundInZip: If the name is not in the archive.
         """
-        await self._ensure_loaded()
-        assert self._name_index is not None
+        if self._name_index is None:
+            raise RuntimeError(_NOT_LOADED)
         try:
             return self._name_index[name]
         except KeyError:
