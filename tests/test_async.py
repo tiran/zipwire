@@ -95,6 +95,11 @@ class TestAsyncRemoteZip:
             await rz.namelist()
         assert reader.closed
 
+    async def test_file_size(self, stored_zip: bytes) -> None:
+        reader = MockAsyncReader(stored_zip)
+        async with AsyncRemoteZip(reader) as rz:
+            assert rz.file_size == len(stored_zip)
+
     async def test_get_eocd_info(self, stored_zip: bytes) -> None:
         reader = MockAsyncReader(stored_zip)
         async with AsyncRemoteZip(reader) as rz:
@@ -104,12 +109,33 @@ class TestAsyncRemoteZip:
         assert eocd.cd_size > 0
         assert 0 <= eocd.cd_offset < len(stored_zip)
 
-    async def test_lazy_loading(self, stored_zip: bytes) -> None:
+    async def test_loading_on_enter(self, stored_zip: bytes) -> None:
         reader = MockAsyncReader(stored_zip)
         rz = AsyncRemoteZip(reader)
         assert reader.read_count == 0
-        await rz.namelist()
-        assert reader.read_count > 0
+        async with rz:
+            assert reader.read_count > 0
+            # _ensure_loaded cannot be called twice
+            with pytest.raises(RuntimeError, match="must not be called more than once"):
+                await rz._ensure_loaded()
+
+    async def test_not_loaded_raises(self, stored_zip: bytes) -> None:
+        reader = MockAsyncReader(stored_zip)
+        rz = AsyncRemoteZip(reader)
+        for coro_fn in [
+            lambda: rz.namelist(),
+            lambda: rz.infolist(),
+            lambda: rz.getinfo("hello.txt"),
+            lambda: rz.read("hello.txt"),
+            lambda: rz.read_into("hello.txt", io.BytesIO()),
+            lambda: rz.get_eocd_info(),
+        ]:
+            with pytest.raises(RuntimeError, match="not loaded"):
+                await coro_fn()
+        # Properties (not async)
+        for call in [lambda: rz.file_size]:
+            with pytest.raises(RuntimeError, match="not loaded"):
+                call()
         await rz.close()
 
     async def test_unicode_filenames(self, unicode_zip: bytes) -> None:
@@ -260,6 +286,6 @@ class TestAsyncRemoteZip:
             return {"accept-ranges": "bytes"}
 
         reader.head = _head_no_cl
-        async with AsyncRemoteZip(reader) as rz:
-            with pytest.raises(RangeRequestUnsupported, match="Content-Length"):
-                await rz.namelist()
+        with pytest.raises(RangeRequestUnsupported, match="Content-Length"):
+            async with AsyncRemoteZip(reader):
+                pass
