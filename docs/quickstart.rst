@@ -83,7 +83,7 @@ Async with httpx2
    async def main():
        reader = Httpx2AsyncReader("https://archive.example/data.zip")
        async with AsyncRemoteZip(reader) as rz:
-           names = await rz.namelist()
+           names = rz.namelist()
            print(names)
 
 

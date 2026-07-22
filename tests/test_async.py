@@ -17,14 +17,14 @@ class TestAsyncRemoteZip:
     async def test_namelist(self, stored_zip: bytes) -> None:
         reader = MockAsyncReader(stored_zip)
         async with AsyncRemoteZip(reader) as rz:
-            names = await rz.namelist()
+            names = rz.namelist()
         assert "hello.txt" in names
         assert "data/numbers.bin" in names
 
     async def test_infolist(self, stored_zip: bytes) -> None:
         reader = MockAsyncReader(stored_zip)
         async with AsyncRemoteZip(reader) as rz:
-            infos = await rz.infolist()
+            infos = rz.infolist()
         assert len(infos) == 2
         for info in infos:
             assert isinstance(info, RemoteZipInfo)
@@ -33,7 +33,7 @@ class TestAsyncRemoteZip:
     async def test_getinfo(self, stored_zip: bytes) -> None:
         reader = MockAsyncReader(stored_zip)
         async with AsyncRemoteZip(reader) as rz:
-            info = await rz.getinfo("hello.txt")
+            info = rz.getinfo("hello.txt")
         assert info.filename == "hello.txt"
         assert info.file_size == 13
 
@@ -41,7 +41,7 @@ class TestAsyncRemoteZip:
         reader = MockAsyncReader(stored_zip)
         async with AsyncRemoteZip(reader) as rz:
             with pytest.raises(FileNotFoundInZip):
-                await rz.getinfo("nonexistent.txt")
+                rz.getinfo("nonexistent.txt")
 
     async def test_read_stored(self, stored_zip: bytes) -> None:
         reader = MockAsyncReader(stored_zip)
@@ -70,16 +70,16 @@ class TestAsyncRemoteZip:
     async def test_read_by_info(self, stored_zip: bytes) -> None:
         reader = MockAsyncReader(stored_zip)
         async with AsyncRemoteZip(reader) as rz:
-            info = await rz.getinfo("hello.txt")
+            info = rz.getinfo("hello.txt")
             data = await rz.read(info)
         assert data == b"Hello, World!"
 
     async def test_read_directory(self, directory_zip: bytes) -> None:
         reader = MockAsyncReader(directory_zip)
         async with AsyncRemoteZip(reader) as rz:
-            names = await rz.namelist()
+            names = rz.namelist()
             for name in names:
-                info = await rz.getinfo(name)
+                info = rz.getinfo(name)
                 if info.is_dir():
                     assert await rz.read(info) == b""
 
@@ -92,7 +92,7 @@ class TestAsyncRemoteZip:
     async def test_context_manager_closes(self, stored_zip: bytes) -> None:
         reader = MockAsyncReader(stored_zip)
         async with AsyncRemoteZip(reader) as rz:
-            await rz.namelist()
+            rz.namelist()
         assert reader.closed
 
     async def test_file_size(self, stored_zip: bytes) -> None:
@@ -100,10 +100,10 @@ class TestAsyncRemoteZip:
         async with AsyncRemoteZip(reader) as rz:
             assert rz.file_size == len(stored_zip)
 
-    async def test_get_eocd_info(self, stored_zip: bytes) -> None:
+    async def test_eocd_info(self, stored_zip: bytes) -> None:
         reader = MockAsyncReader(stored_zip)
         async with AsyncRemoteZip(reader) as rz:
-            eocd = await rz.get_eocd_info()
+            eocd = rz.eocd_info
         assert isinstance(eocd, EOCDInfo)
         assert eocd.cd_entry_count == 2
         assert eocd.cd_size > 0
@@ -128,39 +128,40 @@ class TestAsyncRemoteZip:
     async def test_not_loaded_raises(self, stored_zip: bytes) -> None:
         reader = MockAsyncReader(stored_zip)
         rz = AsyncRemoteZip(reader)
-        for coro_fn in [
+        for call in [
+            lambda: rz.file_size,
+            lambda: rz.eocd_info,
             lambda: rz.namelist(),
             lambda: rz.infolist(),
             lambda: rz.getinfo("hello.txt"),
+        ]:
+            with pytest.raises(RuntimeError, match="not loaded"):
+                call()
+        for coro_fn in [
             lambda: rz.read("hello.txt"),
             lambda: rz.read_into("hello.txt", io.BytesIO()),
-            lambda: rz.get_eocd_info(),
         ]:
             with pytest.raises(RuntimeError, match="not loaded"):
                 await coro_fn()
-        # Properties (not async)
-        for call in [lambda: rz.file_size]:
-            with pytest.raises(RuntimeError, match="not loaded"):
-                call()
         await rz.close()
 
     async def test_unicode_filenames(self, unicode_zip: bytes) -> None:
         reader = MockAsyncReader(unicode_zip)
         async with AsyncRemoteZip(reader) as rz:
-            names = await rz.namelist()
+            names = rz.namelist()
         assert "\u00e9\u00e0\u00fc.txt" in names
         assert "\u4f60\u597d/world.txt" in names
 
     async def test_empty_zip(self, empty_zip: bytes) -> None:
         reader = MockAsyncReader(empty_zip)
         async with AsyncRemoteZip(reader) as rz:
-            assert await rz.namelist() == []
-            assert await rz.infolist() == []
+            assert rz.namelist() == []
+            assert rz.infolist() == []
 
     async def test_comment_zip(self, comment_zip: bytes) -> None:
         reader = MockAsyncReader(comment_zip)
         async with AsyncRemoteZip(reader) as rz:
-            assert await rz.namelist() == ["file.txt"]
+            assert rz.namelist() == ["file.txt"]
             assert await rz.read("file.txt") == b"content"
 
     async def test_mixed_compression(self, mixed_zip: bytes) -> None:
@@ -200,7 +201,7 @@ class TestAsyncRemoteZip:
     async def test_read_into_by_info(self, stored_zip: bytes) -> None:
         reader = MockAsyncReader(stored_zip)
         async with AsyncRemoteZip(reader) as rz:
-            info = await rz.getinfo("hello.txt")
+            info = rz.getinfo("hello.txt")
             dest = io.BytesIO()
             await rz.read_into(info, dest)
         assert dest.getvalue() == b"Hello, World!"
@@ -208,9 +209,9 @@ class TestAsyncRemoteZip:
     async def test_read_into_directory(self, directory_zip: bytes) -> None:
         reader = MockAsyncReader(directory_zip)
         async with AsyncRemoteZip(reader) as rz:
-            names = await rz.namelist()
+            names = rz.namelist()
             for name in names:
-                info = await rz.getinfo(name)
+                info = rz.getinfo(name)
                 if info.is_dir():
                     dest = io.BytesIO()
                     await rz.read_into(info, dest)
@@ -231,7 +232,7 @@ class TestAsyncRemoteZip:
         """Verify we read the same data as stdlib zipfile."""
         reader = MockAsyncReader(stored_zip)
         async with AsyncRemoteZip(reader) as rz:
-            names = await rz.namelist()
+            names = rz.namelist()
             our_data = {}
             for name in names:
                 our_data[name] = await rz.read(name)

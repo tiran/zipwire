@@ -18,10 +18,12 @@ Core
 
 .. autoclass:: zipwire.SyncRemoteZip
    :members:
+   :inherited-members:
    :special-members: __enter__, __exit__
 
 .. autoclass:: zipwire.AsyncRemoteZip
    :members:
+   :inherited-members:
    :special-members: __aenter__, __aexit__
 
 .. autoclass:: zipwire.RemoteZipInfo

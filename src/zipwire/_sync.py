@@ -4,29 +4,22 @@ from __future__ import annotations
 
 import typing
 
+from zipwire._base import RemoteZipBase
 from zipwire._constants import (
     LOCAL_FILE_HEADER_SIZE,
-    MAX_EOCD_SEARCH,
     PREFETCH_EXTRA,
     PREFETCH_THRESHOLD,
 )
 from zipwire._decompress import StreamingDecompressor, decompress
-from zipwire._errors import FileNotFoundInZip, FileTooLarge, RangeRequestUnsupported
-from zipwire._parser import (
-    EOCDInfo,
-    find_eocd,
-    parse_central_directory,
-    parse_local_file_header,
-)
+from zipwire._errors import FileTooLarge, RangeRequestUnsupported
+from zipwire._parser import find_eocd, parse_local_file_header
 from zipwire._zipinfo import RemoteZipInfo
 
 if typing.TYPE_CHECKING:
     from zipwire._types import SyncReader, Writable
 
-_NOT_LOADED = "archive not loaded; use as a context manager"
 
-
-class SyncRemoteZip:
+class SyncRemoteZip(RemoteZipBase):
     """Read files from a remote ZIP archive using synchronous HTTP range requests.
 
     Must be used as a context manager.  The archive is loaded on entry
@@ -41,21 +34,15 @@ class SyncRemoteZip:
     """
 
     def __init__(self, reader: SyncReader) -> None:
+        super().__init__()
         self._reader = reader
-        self._entries: list[RemoteZipInfo] | None = None
-        self._name_index: dict[str, RemoteZipInfo] | None = None
-        self._file_size: int | None = None
-        self._eocd: EOCDInfo | None = None
 
     def __enter__(self) -> SyncRemoteZip:
         self._ensure_loaded()
         return self
 
     def __exit__(self, *exc: object) -> None:
-        self._entries = None
-        self._name_index = None
-        self._file_size = None
-        self._eocd = None
+        self._clear()
         self.close()
 
     def close(self) -> None:
@@ -67,25 +54,16 @@ class SyncRemoteZip:
         """The target URL of the underlying reader."""
         return self._reader.url
 
-    @property
-    def file_size(self) -> int:
-        """Total size of the remote archive in bytes."""
-        if self._file_size is None:
-            raise RuntimeError(_NOT_LOADED)
-        return self._file_size
+    def _ensure_loaded(self) -> tuple[int, bytes]:
+        """Fetch and parse the central directory.
 
-    @property
-    def eocd_info(self) -> EOCDInfo:
-        """Parsed End of Central Directory record.
+        Returns:
+            ``(tail_start, tail_data)`` -- the offset and bytes of the
+            initial tail fetch.
 
-        Contains ``cd_offset``, ``cd_size``, and ``cd_entry_count``.
+        Raises:
+            RuntimeError: If called more than once.
         """
-        if self._eocd is None:
-            raise RuntimeError(_NOT_LOADED)
-        return self._eocd
-
-    def _ensure_loaded(self) -> None:
-        """Fetch and parse the central directory."""
         if self._entries is not None:
             raise RuntimeError("_ensure_loaded() must not be called more than once")
 
@@ -97,46 +75,19 @@ class SyncRemoteZip:
         cl = head_headers.get("content-length")
         if cl is None:
             raise RangeRequestUnsupported("Server did not return a Content-Length header")
-        self._file_size = int(cl)
-        tail_start = max(0, self._file_size - MAX_EOCD_SEARCH)
-        tail, _ = self._reader.read_range(tail_start, self._file_size - tail_start)
+        file_size = int(cl)
+        fetch_size = min(file_size, self._tail_read_size(file_size))
+        tail_start = max(0, file_size - fetch_size)
+        tail, _ = self._reader.read_range(tail_start, file_size - tail_start)
 
         # Step 2: Parse EOCD
-        eocd = find_eocd(tail, self._file_size)
-        self._eocd = eocd
+        eocd = find_eocd(tail, file_size)
 
-        # Step 3: Fetch and parse central directory
+        # Step 3: Fetch central directory and store parsed state
         cd_data, _ = self._reader.read_range(eocd.cd_offset, eocd.cd_size)
-        raw_entries = parse_central_directory(cd_data, eocd.cd_entry_count)
+        self._set_entries(cd_data, file_size, eocd)
 
-        # Step 4: Convert to RemoteZipInfo objects
-        self._entries = [RemoteZipInfo._from_central_dir_entry(e) for e in raw_entries]
-        self._name_index = {info.filename: info for info in self._entries}
-
-    def infolist(self) -> list[RemoteZipInfo]:
-        """Return a list of RemoteZipInfo objects for all files in the archive."""
-        if self._entries is None:
-            raise RuntimeError(_NOT_LOADED)
-        return list(self._entries)
-
-    def namelist(self) -> list[str]:
-        """Return a list of filenames in the archive."""
-        if self._entries is None:
-            raise RuntimeError(_NOT_LOADED)
-        return [info.filename for info in self._entries]
-
-    def getinfo(self, name: str) -> RemoteZipInfo:
-        """Return the RemoteZipInfo for the given filename.
-
-        Raises:
-            FileNotFoundInZip: If the name is not in the archive.
-        """
-        if self._name_index is None:
-            raise RuntimeError(_NOT_LOADED)
-        try:
-            return self._name_index[name]
-        except KeyError:
-            raise FileNotFoundInZip(name) from None
+        return tail_start, tail
 
     def _resolve_entry(
         self,
