@@ -58,6 +58,27 @@ Asynchronous:
   - ``AiohttpReader`` -- uses *aiohttp* (``pip install zipwire[aiohttp]``)
   - ``Httpx2AsyncReader`` -- uses *httpx2*, supports HTTP/2
     (``pip install zipwire[httpx2]``)
+
+Wheel subclasses
+----------------
+
+``SyncRemoteWheel`` and ``AsyncRemoteWheel`` extend the base classes
+for Python wheels.  They parse the wheel URL to derive the
+``.dist-info`` directory name, fetch an adaptive tail (at least
+128 KiB, scaling with archive size) to cover dist-info entries at
+the end of the archive, and serve matching reads from the tail
+buffer without extra HTTP requests.
+
+::
+
+    from zipwire import SyncRemoteWheel
+    from zipwire.backends import Urllib3Reader
+
+    url = "https://files.pythonhosted.org/.../requests-2.32.3-py3-none-any.whl"
+    reader = Urllib3Reader(url)
+    with SyncRemoteWheel(reader) as whl:
+        for entry in whl.distinfolist():
+            print(entry.filename, whl.read(entry))
 """
 
 from __future__ import annotations
@@ -76,10 +97,12 @@ from zipwire._errors import (
 from zipwire._parser import EOCDInfo
 from zipwire._sync import SyncRemoteZip
 from zipwire._types import AsyncReader, Headers, SyncReader, Writable
+from zipwire._wheel import AsyncRemoteWheel, SyncRemoteWheel
 from zipwire._zipinfo import RemoteZipInfo
 
 __all__ = [
     "AsyncReader",
+    "AsyncRemoteWheel",
     "AsyncRemoteZip",
     "BadZipFile",
     "CRCMismatch",
@@ -91,6 +114,7 @@ __all__ = [
     "RangeRequestUnsupported",
     "RemoteZipInfo",
     "SyncReader",
+    "SyncRemoteWheel",
     "SyncRemoteZip",
     "UnsupportedCompression",
     "Writable",

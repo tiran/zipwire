@@ -26,6 +26,19 @@ Core
    :inherited-members:
    :special-members: __aenter__, __aexit__
 
+Wheel
+-----
+
+.. autoclass:: zipwire.SyncRemoteWheel
+   :members:
+   :inherited-members:
+   :show-inheritance:
+
+.. autoclass:: zipwire.AsyncRemoteWheel
+   :members:
+   :inherited-members:
+   :show-inheritance:
+
 .. autoclass:: zipwire.RemoteZipInfo
    :show-inheritance:
 

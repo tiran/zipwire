@@ -7,7 +7,7 @@ import io
 import pytest
 
 from tests.conftest import has_aiohttp, has_httpx2, has_requests
-from zipwire import AsyncRemoteZip, SyncRemoteZip
+from zipwire import AsyncRemoteWheel, AsyncRemoteZip, SyncRemoteWheel, SyncRemoteZip
 from zipwire.backends import Urllib3Reader
 
 if has_httpx2:
@@ -88,28 +88,26 @@ async def test_async_read_metadata(reader_cls):
         _check_metadata(dest.getvalue())
 
 
-# -- Pulp tests (redirect-following) -----------------------------------------
+# -- Pulp tests (redirect-following, using wheel subclasses) -----------------
 
 
 @pytest.mark.parametrize("reader_cls", SYNC_READERS, ids=lambda cls: cls.__name__)
 def test_sync_read_metadata_pulp(reader_cls):
-    meta = _metadata_path(PULP_WHL_URL)
     reader = reader_cls(PULP_WHL_URL)
-    with SyncRemoteZip(reader) as rz:
-        assert meta in rz.namelist()
-        _check_metadata(rz.read(meta))
+    with SyncRemoteWheel(reader) as whl:
+        assert whl.metadata_name in whl.namelist()
+        _check_metadata(whl.read(whl.metadata_name))
         dest = io.BytesIO()
-        rz.read_into(meta, dest)
+        whl.read_into(whl.metadata_name, dest)
         _check_metadata(dest.getvalue())
 
 
 @pytest.mark.parametrize("reader_cls", ASYNC_READERS, ids=lambda cls: cls.__name__)
 async def test_async_read_metadata_pulp(reader_cls):
-    meta = _metadata_path(PULP_WHL_URL)
     reader = reader_cls(PULP_WHL_URL)
-    async with AsyncRemoteZip(reader) as rz:
-        assert meta in rz.namelist()
-        _check_metadata(await rz.read(meta))
+    async with AsyncRemoteWheel(reader) as whl:
+        assert whl.metadata_name in whl.namelist()
+        _check_metadata(await whl.read(whl.metadata_name))
         dest = io.BytesIO()
-        await rz.read_into(meta, dest)
+        await whl.read_into(whl.metadata_name, dest)
         _check_metadata(dest.getvalue())

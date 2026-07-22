@@ -109,6 +109,47 @@ Async streaming to disk
 
    asyncio.run(main())
 
+Wheel dist-info metadata
+------------------------
+
+``SyncRemoteWheel`` and ``AsyncRemoteWheel`` extend the base classes
+with an adaptive tail fetch and a ``distinfolist()`` method.  The tail
+size scales with the archive (at least 128 KiB, up to ~0.4% of the
+file) so that dist-info entries are typically served from memory
+without extra HTTP requests.
+
+.. code-block:: python
+
+   from zipwire import SyncRemoteWheel
+   from zipwire.backends import Urllib3Reader
+
+   url = "https://files.pythonhosted.org/.../requests-2.32.3-py3-none-any.whl"
+   reader = Urllib3Reader(url)
+   with SyncRemoteWheel(reader) as whl:
+       for entry in whl.distinfolist():
+           data = whl.read(entry)
+           print(entry.filename, len(data))
+
+Async variant:
+
+.. code-block:: python
+
+   import asyncio
+
+   from zipwire import AsyncRemoteWheel
+   from zipwire.backends import AiohttpReader
+
+
+   async def main():
+       reader = AiohttpReader(url)
+       async with AsyncRemoteWheel(reader) as whl:
+           for entry in whl.distinfolist():
+               data = await whl.read(entry)
+               print(entry.filename, len(data))
+
+
+   asyncio.run(main())
+
 Passing a pre-configured client
 --------------------------------
 
