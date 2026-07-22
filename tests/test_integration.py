@@ -81,7 +81,7 @@ async def test_async_read_metadata(reader_cls):
     meta = _metadata_path(PIP_WHL_URL)
     reader = reader_cls(PIP_WHL_URL)
     async with AsyncRemoteZip(reader) as rz:
-        assert meta in await rz.namelist()
+        assert meta in rz.namelist()
         _check_metadata(await rz.read(meta))
         dest = io.BytesIO()
         await rz.read_into(meta, dest)
@@ -108,7 +108,7 @@ async def test_async_read_metadata_pulp(reader_cls):
     meta = _metadata_path(PULP_WHL_URL)
     reader = reader_cls(PULP_WHL_URL)
     async with AsyncRemoteZip(reader) as rz:
-        assert meta in await rz.namelist()
+        assert meta in rz.namelist()
         _check_metadata(await rz.read(meta))
         dest = io.BytesIO()
         await rz.read_into(meta, dest)

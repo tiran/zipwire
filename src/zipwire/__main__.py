@@ -41,7 +41,7 @@ async def _run_async(url: str, backend: str, skip_dirs: bool) -> None:
     names = {"httpx2": "Httpx2AsyncReader", "aiohttp": "AiohttpReader"}
     reader_cls = getattr(backends, names[backend])
     async with AsyncRemoteZip(reader_cls(url)) as rz:
-        _print_table(await rz.infolist(), skip_dirs)
+        _print_table(rz.infolist(), skip_dirs)
 
 
 def main(argv: list[str] | None = None) -> None:

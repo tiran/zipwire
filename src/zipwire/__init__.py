@@ -34,7 +34,7 @@ Asynchronous example
     async def main():
         reader = AiohttpReader("https://example.com/archive.zip")
         async with AsyncRemoteZip(reader) as rz:
-            print(await rz.namelist())
+            print(rz.namelist())
             data = await rz.read("path/inside/archive.txt")
 
             # Stream a large entry directly to disk
