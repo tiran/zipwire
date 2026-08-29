@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from zipwire.backends._aiohttp import AiohttpReader as AiohttpReader
+    from zipwire.backends._file import AsyncFileReader as AsyncFileReader
+    from zipwire.backends._file import FileReader as FileReader
     from zipwire.backends._httpx2 import Httpx2AsyncReader as Httpx2AsyncReader
     from zipwire.backends._httpx2 import Httpx2SyncReader as Httpx2SyncReader
     from zipwire.backends._requests import RequestsReader as RequestsReader
@@ -25,6 +27,8 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "AiohttpReader": ("zipwire.backends._aiohttp", "AiohttpReader"),
     "Urllib3Reader": ("zipwire.backends._urllib3", "Urllib3Reader"),
     "RequestsReader": ("zipwire.backends._requests", "RequestsReader"),
+    "FileReader": ("zipwire.backends._file", "FileReader"),
+    "AsyncFileReader": ("zipwire.backends._file", "AsyncFileReader"),
 }
 
 __all__ = list(_LAZY_IMPORTS)

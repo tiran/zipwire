@@ -17,9 +17,9 @@ from tests.conftest import (
     needs_httpx2,
     needs_requests,
 )
-from zipwire import AsyncRemoteZip, SyncRemoteZip, backends
+from zipwire import AsyncReader, AsyncRemoteZip, SyncReader, SyncRemoteZip, backends
 from zipwire._errors import RangeRequestUnsupported
-from zipwire.backends import Urllib3Reader
+from zipwire.backends import AsyncFileReader, FileReader, Urllib3Reader
 
 if has_httpx2:
     import httpx2
@@ -444,6 +444,151 @@ class TestAiohttpBackend:
                 assert await rz.read("hello.txt") == b"Hello from test!"
 
 
+@pytest.fixture
+def zip_path(tmp_path, test_zip_data):
+    path = tmp_path / "test.zip"
+    path.write_bytes(test_zip_data)
+    return path
+
+
+class TestFileBackend:
+    def test_is_sync_reader(self, zip_path) -> None:
+        assert isinstance(FileReader(zip_path), SyncReader)
+
+    def test_read_file(self, zip_path) -> None:
+        reader = FileReader(zip_path)
+        with SyncRemoteZip(reader) as rz:
+            assert rz.read("hello.txt") == b"Hello from test!"
+            assert rz.read("subdir/data.bin") == b"\x00\x01\x02\x03"
+
+    def test_read_into(self, zip_path) -> None:
+        reader = FileReader(zip_path)
+        with SyncRemoteZip(reader) as rz:
+            dest = io.BytesIO()
+            rz.read_into("hello.txt", dest)
+            assert dest.getvalue() == b"Hello from test!"
+
+    def test_from_uri(self, zip_path) -> None:
+        uri = zip_path.as_uri()
+        reader = FileReader.from_uri(uri)
+        assert reader.url == uri
+        with SyncRemoteZip(reader) as rz:
+            assert rz.read("hello.txt") == b"Hello from test!"
+
+    def test_url_defaults_to_path(self, zip_path) -> None:
+        assert FileReader(zip_path).url == str(zip_path)
+
+    def test_head(self, zip_path, test_zip_data) -> None:
+        reader = FileReader(zip_path)
+        headers = reader.head()
+        assert headers["accept-ranges"] == "bytes"
+        assert headers["content-length"] == str(len(test_zip_data))
+        reader.close()
+
+    def test_read_range_matches_seek(self, zip_path, test_zip_data) -> None:
+        reader = FileReader(zip_path)
+        data, headers = reader.read_range(5, 12)
+        assert data == test_zip_data[5:17]
+        assert headers["content-length"] == str(len(test_zip_data))
+        reader.close()
+
+    def test_read_range_past_eof(self, zip_path, test_zip_data) -> None:
+        reader = FileReader(zip_path)
+        data, _ = reader.read_range(len(test_zip_data) - 3, 100)
+        assert data == test_zip_data[-3:]
+        reader.close()
+
+    def test_stream_range(self, zip_path, test_zip_data) -> None:
+        reader = FileReader(zip_path)
+        chunks = list(reader.stream_range(0, 10))
+        assert b"".join(chunks) == test_zip_data[:10]
+        reader.close()
+
+    def test_context_manager(self, zip_path) -> None:
+        with FileReader(zip_path) as reader:
+            assert reader.read_range(0, 2)[0] == b"PK"
+        assert reader._handle is None
+
+    def test_missing_path(self, tmp_path) -> None:
+        reader = FileReader(tmp_path / "does-not-exist.zip")
+        with pytest.raises(FileNotFoundError):
+            reader.head()
+
+    def test_from_uri_not_file_scheme(self) -> None:
+        with pytest.raises(ValueError, match="file://"):
+            FileReader.from_uri("https://example.com/data.zip")
+
+    def test_from_uri_remote_host(self) -> None:
+        with pytest.raises(ValueError, match="host"):
+            FileReader.from_uri("file://remotehost/path/data.zip")
+
+    def test_from_uri_localhost(self, zip_path) -> None:
+        uri = f"file://localhost{zip_path.as_uri()[len('file://') :]}"
+        reader = FileReader.from_uri(uri)
+        with SyncRemoteZip(reader) as rz:
+            assert rz.read("hello.txt") == b"Hello from test!"
+
+
+class TestAsyncFileBackend:
+    def test_is_async_reader(self, zip_path) -> None:
+        assert isinstance(AsyncFileReader(zip_path), AsyncReader)
+
+    async def test_read_file(self, zip_path) -> None:
+        reader = AsyncFileReader(zip_path)
+        async with AsyncRemoteZip(reader) as rz:
+            assert await rz.read("hello.txt") == b"Hello from test!"
+            assert await rz.read("subdir/data.bin") == b"\x00\x01\x02\x03"
+
+    async def test_read_into(self, zip_path) -> None:
+        reader = AsyncFileReader(zip_path)
+        async with AsyncRemoteZip(reader) as rz:
+            dest = io.BytesIO()
+            await rz.read_into("hello.txt", dest)
+            assert dest.getvalue() == b"Hello from test!"
+
+    async def test_from_uri(self, zip_path) -> None:
+        uri = zip_path.as_uri()
+        reader = AsyncFileReader.from_uri(uri)
+        assert reader.url == uri
+        async with AsyncRemoteZip(reader) as rz:
+            assert await rz.read("hello.txt") == b"Hello from test!"
+
+    async def test_head(self, zip_path, test_zip_data) -> None:
+        reader = AsyncFileReader(zip_path)
+        headers = await reader.head()
+        assert headers["accept-ranges"] == "bytes"
+        assert headers["content-length"] == str(len(test_zip_data))
+        await reader.close()
+
+    async def test_read_range_matches_seek(self, zip_path, test_zip_data) -> None:
+        reader = AsyncFileReader(zip_path)
+        data, headers = await reader.read_range(5, 12)
+        assert data == test_zip_data[5:17]
+        assert headers["content-length"] == str(len(test_zip_data))
+        await reader.close()
+
+    async def test_stream_range(self, zip_path, test_zip_data) -> None:
+        reader = AsyncFileReader(zip_path)
+        chunks = [chunk async for chunk in reader.stream_range(0, 10)]
+        assert b"".join(chunks) == test_zip_data[:10]
+        await reader.close()
+
+    async def test_context_manager(self, zip_path) -> None:
+        async with AsyncFileReader(zip_path) as reader:
+            data, _ = await reader.read_range(0, 2)
+            assert data == b"PK"
+        assert reader._handle is None
+
+    async def test_missing_path(self, tmp_path) -> None:
+        reader = AsyncFileReader(tmp_path / "does-not-exist.zip")
+        with pytest.raises(FileNotFoundError):
+            await reader.head()
+
+    def test_from_uri_not_file_scheme(self) -> None:
+        with pytest.raises(ValueError, match="file://"):
+            AsyncFileReader.from_uri("https://example.com/data.zip")
+
+
 class TestBackendsInit:
     def test_unknown_attribute(self) -> None:
         with pytest.raises(AttributeError, match="NonExistentReader"):
@@ -456,6 +601,8 @@ class TestBackendsInit:
         assert "AiohttpReader" in names
         assert "Urllib3Reader" in names
         assert "RequestsReader" in names
+        assert "FileReader" in names
+        assert "AsyncFileReader" in names
 
     @pytest.mark.skipif(has_httpx2, reason="httpx2 is installed")
     def test_httpx2_import_error(self) -> None:

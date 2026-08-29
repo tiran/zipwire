@@ -78,6 +78,14 @@ Backends
 .. autoclass:: zipwire.backends._aiohttp.AiohttpReader
    :members:
 
+.. autoclass:: zipwire.backends._file.FileReader
+   :members:
+   :special-members: __enter__, __exit__
+
+.. autoclass:: zipwire.backends._file.AsyncFileReader
+   :members:
+   :special-members: __aenter__, __aexit__
+
 Exceptions
 ----------
 

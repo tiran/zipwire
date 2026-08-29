@@ -46,6 +46,25 @@ entries:
        with open("output.bin", "wb") as f:
            rz.read_into("big-file.bin", f)
 
+Read a local archive
+^^^^^^^^^^^^^^^^^^^^
+
+:class:`~zipwire.backends.FileReader` opens an archive on the local
+filesystem through the same interface, so the same code works for local and
+remote archives.  It accepts a path or a ``file://`` URI and needs no extra
+dependency:
+
+.. code-block:: python
+
+   from zipwire import SyncRemoteZip
+   from zipwire.backends import FileReader
+
+   with SyncRemoteZip(FileReader("/path/to/archive.zip")) as rz:
+       data = rz.read("path/to/file.txt")
+
+   # Or from a file:// URI
+   reader = FileReader.from_uri("file:///path/to/archive.zip")
+
 Asynchronous usage
 ------------------
 
@@ -85,6 +104,27 @@ Async with httpx2
        async with AsyncRemoteZip(reader) as rz:
            names = rz.namelist()
            print(names)
+
+
+   asyncio.run(main())
+
+Async local archive
+^^^^^^^^^^^^^^^^^^^
+
+:class:`~zipwire.backends.AsyncFileReader` reads a local archive and offloads
+blocking file IO to a worker thread so it never stalls the event loop:
+
+.. code-block:: python
+
+   import asyncio
+
+   from zipwire import AsyncRemoteZip
+   from zipwire.backends import AsyncFileReader
+
+
+   async def main():
+       async with AsyncRemoteZip(AsyncFileReader("/path/to/archive.zip")) as rz:
+           print(await rz.read("path/to/file.txt"))
 
 
    asyncio.run(main())
