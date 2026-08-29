@@ -59,6 +59,23 @@ Asynchronous:
   - ``Httpx2AsyncReader`` -- uses *httpx2*, supports HTTP/2
     (``pip install zipwire[httpx2]``)
 
+Local files:
+  - ``FileReader`` / ``AsyncFileReader`` -- read an archive from the local
+    filesystem through the same API (no extra dependency).  Useful for
+    testing or for handling ``file://`` URIs and local paths uniformly
+    with HTTP URLs.
+
+::
+
+    from zipwire import SyncRemoteZip
+    from zipwire.backends import FileReader
+
+    with SyncRemoteZip(FileReader("/path/to/archive.zip")) as rz:
+        data = rz.read("path/inside/archive.txt")
+
+    # From a file:// URI
+    reader = FileReader.from_uri("file:///path/to/archive.zip")
+
 Wheel subclasses
 ----------------
 

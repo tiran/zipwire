@@ -43,6 +43,16 @@ Available backends
      - async
      - 1.1
      - ``aiohttp``
+   * - local files
+     - :class:`~zipwire.backends.FileReader`
+     - sync
+     - --
+     - *(included)*
+   * - local files
+     - :class:`~zipwire.backends.AsyncFileReader`
+     - async
+     - --
+     - *(included)*
 
 Choosing a backend
 ------------------
@@ -60,6 +70,57 @@ Choosing a backend
 - **Requests integration** - use :class:`~zipwire.backends.RequestsReader`
   if your project already uses ``requests`` and you want to share sessions,
   authentication, or retry configuration.
+- **Local archives** - use :class:`~zipwire.backends.FileReader` or
+  :class:`~zipwire.backends.AsyncFileReader` to read a ZIP or wheel that
+  already lives on the local filesystem.  No extra dependency is required.
+
+Reading local files
+-------------------
+
+:class:`~zipwire.backends.FileReader` and
+:class:`~zipwire.backends.AsyncFileReader` back the same
+:class:`~zipwire.SyncRemoteZip` / :class:`~zipwire.AsyncRemoteZip` API with
+local file IO, so identical code opens a local or a remote archive.  Instead
+of an HTTP round-trip, :meth:`~zipwire.backends.FileReader.head` synthesises
+``Content-Length`` / ``Accept-Ranges`` from ``os.fstat`` on the open handle
+(the size is cached, assuming the file does not change), and range reads
+seek into a lazily-opened file handle.  A missing path raises
+:exc:`FileNotFoundError`, mirroring how a network 404 surfaces as
+:exc:`OSError`.
+
+Both accept either a path (``str`` / :class:`os.PathLike`) or a ``file://``
+URI via :meth:`~zipwire.backends.FileReader.from_uri` (percent-decoded, with
+an empty or ``localhost`` host).
+
+.. code-block:: python
+
+   from zipwire import SyncRemoteZip
+   from zipwire.backends import FileReader
+
+   with SyncRemoteZip(FileReader("/path/to/archive.zip")) as rz:
+       data = rz.read("file.txt")
+
+   reader = FileReader.from_uri("file:///path/to/archive.zip")
+
+Regular files do not support true non-blocking IO, so
+:class:`~zipwire.backends.AsyncFileReader` offloads every blocking call to a
+worker thread via :func:`asyncio.to_thread` -- the same approach libraries
+such as ``aiofiles`` use internally, without the extra dependency.
+
+.. code-block:: python
+
+   import asyncio
+
+   from zipwire import AsyncRemoteZip
+   from zipwire.backends import AsyncFileReader
+
+
+   async def main():
+       async with AsyncRemoteZip(AsyncFileReader("/path/to/archive.zip")) as rz:
+           print(await rz.read("file.txt"))
+
+
+   asyncio.run(main())
 
 Passing an existing client
 --------------------------
