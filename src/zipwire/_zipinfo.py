@@ -10,7 +10,8 @@ from zipwire._zipstructs import (
     CentralDirHeaderRecord,
     UnicodePathExtraField,
     Zip64ExtendedInfo,
-    find_extra_field,
+    get_unique_extra_field,
+    iter_extra_fields,
 )
 
 
@@ -27,6 +28,8 @@ class RemoteZipInfo(zipfile.ZipInfo):
     # None for entries that have not been through that step.
     _end_offset: int | None = None
 
+    _raw_time: int | None = None
+
     @classmethod
     def _from_central_dir_entry(
         cls,
@@ -38,6 +41,7 @@ class RemoteZipInfo(zipfile.ZipInfo):
         info = cls(entry.decode_filename(metadata_encoding=metadata_encoding))
 
         info.date_time = entry.date_time
+        info._raw_time = entry.mod_time
         info.compress_type = entry.compression_method
         info.CRC = entry.crc32
         info.compress_size = entry.compressed_size
@@ -53,7 +57,11 @@ class RemoteZipInfo(zipfile.ZipInfo):
         info.extra = entry.extra
         info.comment = entry.comment
 
-        field = find_extra_field(entry.extra, ExtraDataId.ZIP64)
+        fields = list(iter_extra_fields(entry.extra))
+
+        # More strict than stdlib.  Fail if entry has multiple extra fields
+        # of same type.
+        field = get_unique_extra_field(fields, ExtraDataId.ZIP64)
         if field is not None:
             zip64 = Zip64ExtendedInfo.resolve(field.data, entry)
             if zip64.file_size is not None:
@@ -68,7 +76,7 @@ class RemoteZipInfo(zipfile.ZipInfo):
         # A matching Unicode Path field carries the UTF-8 form of a
         # legacy-encoded name and replaces it; ``orig_filename`` keeps
         # the central directory form for the local header name check.
-        field = find_extra_field(entry.extra, ExtraDataId.UNICODE_PATH)
+        field = get_unique_extra_field(fields, ExtraDataId.UNICODE_PATH)
         if field is not None:
             unicode_path = UnicodePathExtraField.resolve(field.data, entry.filename)
             if unicode_path is not None:

@@ -24,6 +24,8 @@ releases; they are marked **BREAKING**.
 
 ### Changed
 
+- Entries with a duplicate ZIP64 or Unicode Path extra field are now
+  rejected with `BadZipFile` instead of silently using the first field.
 - The async API now uses anyio for its scheduling checkpoints and thread
   offloading, so it runs under trio as well as asyncio. `anyio>=4` is now
   a required dependency.
