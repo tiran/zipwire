@@ -24,6 +24,13 @@ releases; they are marked **BREAKING**.
 
 ### Changed
 
+- The "version needed to extract" of central directory and local file
+  headers and of the ZIP64 end of central directory record is now
+  validated: a version outside the ZIP specification versions 1.0 to
+  6.3, or below 4.5 in the ZIP64 record, raises `BadZipFile`.
+- `RemoteZipInfo.extract_version` now holds the version byte only, with
+  the reserved upper byte in `RemoteZipInfo.reserved`, matching stdlib
+  `zipfile`.
 - Entries with a duplicate ZIP64 or Unicode Path extra field are now
   rejected with `BadZipFile` instead of silently using the first field.
 - The async API now uses anyio for its scheduling checkpoints and thread

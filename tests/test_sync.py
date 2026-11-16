@@ -547,6 +547,18 @@ class TestHardening:
         ):
             rz.read("hello.txt")
 
+    def test_version_needed_out_of_range(self, stored_zip: bytes) -> None:
+        """An entry claiming a 7.0 version is rejected at load."""
+        buf = bytearray(stored_zip)
+        offset = cd_entry_offset(stored_zip, 0)
+        struct.pack_into("<H", buf, offset + 6, 70)
+        reader = MockSyncReader(bytes(buf))
+        with (
+            pytest.raises(BadZipFile, match="outside the ZIP specification versions"),
+            SyncRemoteZip(reader),
+        ):
+            pass
+
     def test_header_offset_beyond_archive(self, stored_zip: bytes) -> None:
         buf = bytearray(stored_zip)
         offset = cd_entry_offset(stored_zip, 0)

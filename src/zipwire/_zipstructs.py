@@ -28,7 +28,13 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, NewType, Self
 from zlib import crc32
 
-from zipwire._constants import MAX_UINT16, MAX_UINT32, HeaderFlag
+from zipwire._constants import (
+    MAX_UINT16,
+    MAX_UINT32,
+    MAX_ZIP_VERSION,
+    HeaderFlag,
+    ZipVersion,
+)
 from zipwire._errors import BadZipFile
 
 if TYPE_CHECKING:
@@ -259,6 +265,14 @@ class Zip64EocdRecord(StructRecord):
     SIGNATURE: ClassVar[bytes] = b"PK\x06\x06"
 
     def _validate(self) -> None:
+        # The record only exists in ZIP64 archives, which must announce
+        # the 4.5 minimum here as well (APPNOTE 4.4.3.3).
+        version = self.version_needed & 0xFF
+        if version < ZipVersion.ZIP64 or version > MAX_ZIP_VERSION:
+            raise BadZipFile(
+                f"{self.NAME} version needed to extract {version // 10}.{version % 10}"
+                " is outside the ZIP64 versions 4.5 to 6.3"
+            )
         minimum = self.FIXED_SIZE - _ZIP64_EOCD_SIZED_PREFIX
         if self.record_size < minimum:
             raise BadZipFile(f"{self.NAME} size {self.record_size} is smaller than its fixed part")
@@ -328,6 +342,20 @@ class CentralDirHeaderRecord(StructRecord):
     def create_version(self) -> int:
         """Lower byte of ``version_made_by``, e.g. 45 means 4.5."""
         return self.version_made_by & 0xFF
+
+    @property
+    def extract_version(self) -> int:
+        """Lower byte of ``version_needed``, e.g. 45 means 4.5."""
+        return self.version_needed & 0xFF
+
+    def _validate(self) -> None:
+        # Only the range is checked - zipwire is not strict about feature minimums.
+        version = self.extract_version
+        if version < ZipVersion.DEFAULT or version > MAX_ZIP_VERSION:
+            raise BadZipFile(
+                f"{self.NAME} version needed to extract {version // 10}.{version % 10}"
+                " is outside the ZIP specification versions 1.0 to 6.3"
+            )
 
     def decode_filename(self, *, metadata_encoding: str | None = None) -> str:
         """Decode the file name.
@@ -431,6 +459,15 @@ class LocalFileHeaderRecord(StructRecord):
             "extra",
             self._slice_optional(data, start + self.filename_length, self.extra_length),
         )
+
+    def _validate(self) -> None:
+        # Only the range is checked - zipwire is not strict about feature minimums.
+        version = self.version_needed & 0xFF
+        if version < ZipVersion.DEFAULT or version > MAX_ZIP_VERSION:
+            raise BadZipFile(
+                f"{self.NAME} version needed to extract {version // 10}.{version % 10}"
+                " is outside the ZIP specification versions 1.0 to 6.3"
+            )
 
 
 @dataclass(frozen=True, slots=True)
