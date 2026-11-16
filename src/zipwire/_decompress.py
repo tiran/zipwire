@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
 import io
 import typing
 import zlib
+
+import anyio
 
 from zipwire._constants import STREAM_CHUNK_SIZE, CompressionMethod
 from zipwire._errors import (
@@ -227,15 +228,16 @@ async def adecompress(
 
     Same result as :func:`decompress` -- including the CRC-32 and size
     checks and the exceptions they raise -- but the work is split into
-    chunks of at most 2 MiB of decompressed output and the event loop
-    runs between them.
+    chunks of at most 2 MiB of decompressed output and an anyio
+    checkpoint runs between them, so the coroutine works on asyncio and
+    trio alike.
     """
     if method == CompressionMethod.STORED:
         actual_crc = 0
         with memoryview(data) as view:
             for offset in range(0, len(data), STREAM_CHUNK_SIZE):
                 actual_crc = zlib.crc32(view[offset : offset + STREAM_CHUNK_SIZE], actual_crc)
-                await asyncio.sleep(0)  # yield to loop
+                await anyio.sleep(0)  # checkpoint: yield to the loop
         if actual_crc != expected_crc:
             raise CRCMismatch(expected_crc, actual_crc)
         if len(data) != expected_size:
@@ -246,7 +248,7 @@ async def adecompress(
     sd = StreamingDecompressor(method, expected_crc, expected_size=expected_size)
     for chunk in sd.feed_chunks(data):
         output.write(chunk)
-        await asyncio.sleep(0)  # yield to loop
+        await anyio.sleep(0)  # checkpoint: yield to the loop
     sd.finish()
     return output.getvalue()
 

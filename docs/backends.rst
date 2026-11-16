@@ -104,12 +104,15 @@ an empty or ``localhost`` host).
 
 Regular files do not support true non-blocking IO, so
 :class:`~zipwire.backends.AsyncFileReader` offloads every blocking call to a
-worker thread via :func:`asyncio.to_thread` -- the same approach libraries
-such as ``aiofiles`` use internally, without the extra dependency.
+worker thread via :func:`anyio.to_thread.run_sync` -- the same approach
+libraries such as ``aiofiles`` use internally, without the extra dependency.
+Because anyio drives the offloading, the reader works under asyncio and
+trio, and cancelling a read never abandons its worker thread: the blocking
+call always runs to completion first.
 
 .. code-block:: python
 
-   import asyncio
+   import anyio
 
    from zipwire import AsyncRemoteZip
    from zipwire.backends import AsyncFileReader
@@ -120,7 +123,7 @@ such as ``aiofiles`` use internally, without the extra dependency.
            print(await rz.read("file.txt"))
 
 
-   asyncio.run(main())
+   anyio.run(main)
 
 Passing an existing client
 --------------------------

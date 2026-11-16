@@ -8,12 +8,12 @@ import typing
 import zipfile
 from random import Random
 
+import anyio
 import pytest
 
 from tests.conftest import (
     MockAsyncReader,
     make_zip,
-    needs_anyio,
     needs_zstd,
 )
 from zipwire import AsyncRemoteZip, AsyncWritable, CRCMismatch, FileTooLarge
@@ -340,11 +340,8 @@ async def test_actual_output_limit(size: int) -> None:
             assert reader.stream_closed
 
 
-@needs_anyio
 async def test_anyio_file(stored_zip: bytes, tmp_path: Path) -> None:
-    """Exercise a real async file writer without a runtime dependency."""
-    import anyio
-
+    """Exercise a real async file writer (anyio.AsyncFile)."""
     path = tmp_path / "output.txt"
     async with AsyncRemoteZip(MockAsyncReader(stored_zip)) as archive:
         async with await anyio.open_file(path, "wb") as destination:

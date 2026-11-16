@@ -22,6 +22,16 @@ releases; they are marked **BREAKING**.
   version 1 field replaces the entry name with its UTF-8 form, as stdlib
   `zipfile` does.
 
+### Changed
+
+- The async API now uses anyio for its scheduling checkpoints and thread
+  offloading, so it runs under trio as well as asyncio. `anyio>=4` is now
+  a required dependency.
+- `AsyncFileReader` offloads blocking IO via `anyio.to_thread.run_sync`
+  and no longer requires asyncio. Cancelling a read now waits for the
+  in-flight blocking call to finish instead of abandoning its worker
+  thread, so the file handle is never closed underneath a running read.
+
 ### Security
 
 - A null byte in an entry name or a Unicode Path field name is now

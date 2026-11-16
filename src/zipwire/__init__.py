@@ -27,8 +27,6 @@ Asynchronous example
 
 ::
 
-    import asyncio
-
     import anyio
 
     from zipwire import AsyncRemoteZip
@@ -48,7 +46,7 @@ Asynchronous example
             async with await anyio.open_file("local.bin", "wb") as fh:
                 await rz.read_into("large-file.bin", fh)
 
-    asyncio.run(main())
+    anyio.run(main)
 
 Backends
 --------
