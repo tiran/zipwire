@@ -27,9 +27,7 @@ from zipwire._errors import (
 )
 from zipwire._parser import find_eocd
 from zipwire._zipinfo import RemoteZipInfo
-from zipwire._zipstructs import (
-    LocalFileHeaderRecord,
-)
+from zipwire._zipstructs import EOCDRecord, LocalFileHeaderRecord
 
 if typing.TYPE_CHECKING:
     from collections.abc import Generator
@@ -520,7 +518,7 @@ class ShortCdReader(MockSyncReader):
 
 
 class ShortFilenameReader(MockSyncReader):
-    """Reader whose fourth (local header filename) read_range is short."""
+    """Reader whose third (local header filename) read_range is short."""
 
     def read_range(
         self,
@@ -528,9 +526,16 @@ class ShortFilenameReader(MockSyncReader):
         length: int,
     ) -> tuple[bytes, MockHeaders]:
         data, headers = super().read_range(offset, length)
-        if self.read_count == 4:
+        if self.read_count == 3:
             data = data[:-1]
         return data, headers
+
+
+class SmallTailZip(SyncRemoteZip):
+    """SyncRemoteZip that fetches only the fixed EOCD part as its tail."""
+
+    def _tail_read_size(self, file_size: int) -> int:
+        return EOCDRecord.FIXED_SIZE
 
 
 class TestHardening:
@@ -810,12 +815,33 @@ class TestHardening:
             pass
 
     def test_short_cd_read_rejected(self, large_file_zip: bytes) -> None:
+        # The small tail forces the central directory outside the initial
+        # fetch, so it is requested separately and must arrive complete.
         reader = ShortCdReader(large_file_zip)
         with (
             pytest.raises(BadZipFile, match="Central directory fetch returned"),
-            SyncRemoteZip(reader),
+            SmallTailZip(reader),
         ):
             pass
+
+    def test_cd_reused_from_tail(self, stored_zip: bytes) -> None:
+        # The archive fits into the tail fetch, so loading must not
+        # request the central directory again.
+        reader = MockSyncReader(stored_zip)
+        with SyncRemoteZip(reader) as rz:
+            assert reader.requests == [(0, len(stored_zip))]
+            assert rz.read("hello.txt") == b"Hello, World!"
+
+    def test_cd_fetched_when_outside_tail(self, stored_zip: bytes) -> None:
+        # With a minimal tail the central directory needs its own request.
+        eocd = find_eocd(stored_zip, len(stored_zip))
+        reader = MockSyncReader(stored_zip)
+        with SmallTailZip(reader) as rz:
+            assert reader.requests == [
+                (len(stored_zip) - EOCDRecord.FIXED_SIZE, EOCDRecord.FIXED_SIZE),
+                (eocd.cd_offset, eocd.cd_size),
+            ]
+            assert rz.read("hello.txt") == b"Hello, World!"
 
     def test_short_local_filename_fetch_rejected(self) -> None:
         # The extra fetch for a filename longer than the prefetch
