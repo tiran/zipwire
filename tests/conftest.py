@@ -101,26 +101,13 @@ def legacy_encoded_zip(name: str, encoding: str, content: bytes = b"legacy conte
     return bytes(buf)
 
 
-class MockHeaders:
+class MockHeaders(dict[str, str]):
     """Lower-case header mapping for mock readers.
 
-    A plain dict would work at runtime, but pyrefly cannot match the
-    overloaded ``get`` of the mapping types against the Headers protocol;
-    declaring the protocol's signatures directly makes the mock readers
-    verify against SyncReader and AsyncReader.
+    A ``dict[str, str]`` is one of the mappings the :class:`~zipwire.Headers`
+    protocol accepts; the subclass gives the mocks a distinct type in
+    error messages and tracebacks.
     """
-
-    def __init__(self, headers: dict[str, str] | None = None) -> None:
-        self._headers: dict[str, str] = dict(headers) if headers else {}
-
-    def __getitem__(self, key: str, /) -> str:
-        return self._headers[key]
-
-    def __contains__(self, key: object, /) -> bool:
-        return key in self._headers
-
-    def get(self, key: str, default: str | None = None, /) -> str | None:
-        return self._headers.get(key, default)
 
 
 class MockSyncReader:
