@@ -51,7 +51,7 @@ class AiohttpReader:
                 raise RangeRequestUnsupported(
                     f"Server does not support range requests for {self._url}"
                 )
-            return resp.headers  # type: ignore[return-value]
+            return resp.headers
 
     async def read_range(
         self,
@@ -68,7 +68,7 @@ class AiohttpReader:
                 raise RangeRequestUnsupported(
                     f"Server does not support range requests for {self._url}"
                 )
-            return await resp.read(), resp.headers  # type: ignore[return-value]
+            return await resp.read(), resp.headers
 
     async def stream_range(self, offset: int, length: int) -> AsyncGenerator[bytes, None]:
         logger.debug(

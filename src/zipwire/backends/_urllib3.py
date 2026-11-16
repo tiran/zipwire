@@ -48,7 +48,7 @@ class Urllib3Reader:
             raise RangeRequestUnsupported(
                 f"Server does not support range requests for {self._url}"
             )
-        return resp.headers  # type: ignore[return-value]
+        return resp.headers
 
     def read_range(
         self,
@@ -68,7 +68,7 @@ class Urllib3Reader:
             raise RangeRequestUnsupported(
                 f"Server does not support range requests for {self._url}"
             )
-        return resp.data, resp.headers  # type: ignore[return-value]
+        return resp.data, resp.headers
 
     def stream_range(self, offset: int, length: int) -> Generator[bytes, None, None]:
         logger.debug(
