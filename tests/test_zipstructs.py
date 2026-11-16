@@ -168,8 +168,10 @@ def test_lfh_tolerant_load(zip_data, eocd_offset) -> None:
         short.decode_filename()
 
 
-def make_lfh(flags: int, name: bytes) -> LocalFileHeaderRecord:
-    header = b"PK\x03\x04" + struct.pack("<HHHHHIIIHH", 20, flags, 0, 0, 0, 0, 0, 0, len(name), 0)
+def make_lfh(flags: int, name: bytes, version: int = 20) -> LocalFileHeaderRecord:
+    header = b"PK\x03\x04" + struct.pack(
+        "<HHHHHIIIHH", version, flags, 0, 0, 0, 0, 0, 0, len(name), 0
+    )
     return LocalFileHeaderRecord.parse(header + name)
 
 
@@ -208,11 +210,25 @@ def test_cdh_decode_filename_null_byte_rejected() -> None:
 @pytest.mark.parametrize(("record_size", "valid"), [(43, False), (44, True)])
 def test_zip64_eocd_record_size_validated(record_size, valid) -> None:
     """``record_size`` must cover the fixed part after the size field."""
-    header = b"PK\x06\x06" + struct.pack("<Q", record_size) + bytes(48)
+    header = b"PK\x06\x06" + struct.pack("<QHH", record_size, 45, 45) + bytes(44)
     if valid:
         assert Zip64EocdRecord.parse(header).record_size == record_size
     else:
         with pytest.raises(BadZipFile, match="smaller than its fixed part"):
+            Zip64EocdRecord.parse(header)
+
+
+@pytest.mark.parametrize(
+    ("version_needed", "valid"),
+    [(0, False), (44, False), (45, True), (46, True), (63, True), (64, False)],
+)
+def test_zip64_eocd_version_needed_validated(version_needed, valid) -> None:
+    """The ZIP64 record must announce at least the 4.5 ZIP64 minimum."""
+    header = b"PK\x06\x06" + struct.pack("<QHH", 44, 45, version_needed) + bytes(44)
+    if valid:
+        assert Zip64EocdRecord.parse(header).version_needed == version_needed
+    else:
+        with pytest.raises(BadZipFile, match="outside the ZIP64 versions"):
             Zip64EocdRecord.parse(header)
 
 
@@ -292,6 +308,32 @@ def make_cdh(extra: bytes = b"", filename: bytes = b"", **overrides) -> CentralD
     values["extra_length"] = len(extra)
     header = b"PK\x01\x02" + struct.pack("<HHHHHHIIIHHHHHII", *values.values())
     return CentralDirHeaderRecord.parse(header + filename + extra)
+
+
+@pytest.mark.parametrize("version_needed", [0, 9, 64, 70, 0x03FF])
+def test_version_needed_out_of_range(version_needed: int) -> None:
+    """Versions outside the defined 1.0 to 6.3 range are rejected."""
+    with pytest.raises(BadZipFile, match="outside the ZIP specification versions"):
+        make_cdh(version_needed=version_needed)
+
+
+def test_version_needed_upper_byte_ignored() -> None:
+    """The reserved upper byte does not reject the record, as in zipfile."""
+    assert make_cdh(version_needed=0x0314).extract_version == 20
+
+
+def test_lfh_version_needed_validated() -> None:
+    """The local file header validates its version as well."""
+    with pytest.raises(BadZipFile, match="outside the ZIP specification versions"):
+        make_lfh(0, b"hello.txt", version=70)
+
+
+def test_cdh_version_needed_corrupt(zip_data, eocd_offset) -> None:
+    """A version outside the defined range is rejected when the directory is parsed."""
+    eocd = EOCDRecord.parse(zip_data, eocd_offset)
+    bad = corrupt(zip_data, eocd.cd_offset + 6, struct.pack("<H", 70))
+    with pytest.raises(BadZipFile, match="outside the ZIP specification versions"):
+        CentralDirHeaderRecord.parse(bad, eocd.cd_offset)
 
 
 @pytest.mark.parametrize(

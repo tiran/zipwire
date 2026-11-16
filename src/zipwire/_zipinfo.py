@@ -51,7 +51,8 @@ class RemoteZipInfo(zipfile.ZipInfo):
         info.external_attr = entry.external_attr
         info.create_system = entry.create_system
         info.create_version = entry.create_version
-        info.extract_version = entry.version_needed
+        info.extract_version = entry.extract_version
+        info.reserved = entry.version_needed >> 8
         info.flag_bits = entry.flags
         info.volume = entry.disk_start
         info.extra = entry.extra

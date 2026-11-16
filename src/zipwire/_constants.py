@@ -44,6 +44,35 @@ class HeaderFlag(IntFlag):
     MASK_HEADER_VALUES = 1 << 13
 
 
+class ZipVersion(IntEnum):
+    """Minimum ZIP specification versions per feature (APPNOTE 4.4.3.2).
+
+    A "version needed to extract" encodes a specification version as
+    major * 10 + minor, e.g. 45 means 4.5.  Several features share a
+    version; they are listed as aliases and in the comments.
+    """
+
+    DEFAULT = 10  # 1.0: the base format
+    VOLUME_LABEL = 11  # 1.1
+    FOLDER = 20  # 2.0: directory entries
+    DEFLATE = 20  # 2.0: Deflate compression
+    TRADITIONAL_ENCRYPTION = 20  # 2.0: traditional PKWARE encryption
+    DEFLATE64 = 21  # 2.1: not supported by zipwire
+    DCL_IMPLODE = 25  # 2.5: PKWARE DCL Implode, not supported by zipwire
+    PATCHED_DATA = 27  # 2.7: patch data sets (general purpose flag bit 5)
+    ZIP64 = 45  # 4.5: ZIP64 format extensions
+    BZIP2 = 46  # 4.6
+    STRONG_ENCRYPTION = 50  # 5.0: general purpose flag bit 6
+    AES = 51  # 5.1
+    NON_OAEP_KEY_WRAPPING = 61  # 6.1
+    CENTRAL_DIRECTORY_ENCRYPTION = 62  # 6.2
+    LZMA = 63  # 6.3: LZMA, PPMd, Blowfish, and Twofish
+
+
+# The highest feature version zipwire supports.
+MAX_ZIP_VERSION = ZipVersion.LZMA
+
+
 class ExtraDataId(IntEnum):
     """Extra data field header ids (APPNOTE 4.5)."""
 

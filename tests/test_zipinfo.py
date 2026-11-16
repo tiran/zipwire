@@ -204,6 +204,14 @@ def test_raw_time() -> None:
     assert info.date_time == (2031, 6, 20, 10, 17, 8)
 
 
+def test_extract_version_split() -> None:
+    """The version is the low byte; the upper byte is reserved, as in zipfile."""
+    entry = make_cd_entry(version_needed=0x0314)
+    info = RemoteZipInfo._from_central_dir_entry(entry)
+    assert info.extract_version == 20
+    assert info.reserved == 3
+
+
 def test_unicode_path_extra_field() -> None:
     """A version 1 Unicode Path field with a matching CRC-32 renames the entry."""
     raw = b"cafe.txt"
