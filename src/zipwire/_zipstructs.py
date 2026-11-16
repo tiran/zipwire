@@ -460,14 +460,9 @@ class LocalFileHeaderRecord(StructRecord):
             self._slice_optional(data, start + self.filename_length, self.extra_length),
         )
 
-    def _validate(self) -> None:
-        # Only the range is checked - zipwire is not strict about feature minimums.
-        version = self.version_needed & 0xFF
-        if version < ZipVersion.DEFAULT or version > MAX_ZIP_VERSION:
-            raise BadZipFile(
-                f"{self.NAME} version needed to extract {version // 10}.{version % 10}"
-                " is outside the ZIP specification versions 1.0 to 6.3"
-            )
+    # version_needed is not validated here, unlike the central
+    # directory: zipwire never uses it, and the central directory is
+    # the authority.
 
 
 @dataclass(frozen=True, slots=True)

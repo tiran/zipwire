@@ -24,10 +24,10 @@ releases; they are marked **BREAKING**.
 
 ### Changed
 
-- The "version needed to extract" of central directory and local file
-  headers and of the ZIP64 end of central directory record is now
-  validated: a version outside the ZIP specification versions 1.0 to
-  6.3, or below 4.5 in the ZIP64 record, raises `BadZipFile`.
+- The "version needed to extract" of central directory headers and of
+  the ZIP64 end of central directory record is now validated: a version
+  outside the ZIP specification versions 1.0 to 6.3, or below 4.5 in the
+  ZIP64 record, raises `BadZipFile`.
 - `RemoteZipInfo.extract_version` now holds the version byte only, with
   the reserved upper byte in `RemoteZipInfo.reserved`, matching stdlib
   `zipfile`.
@@ -40,6 +40,12 @@ releases; they are marked **BREAKING**.
   and no longer requires asyncio. Cancelling a read now waits for the
   in-flight blocking call to finish instead of abandoning its worker
   thread, so the file handle is never closed underneath a running read.
+
+### Fixed
+
+- ZIP64 archives with a maximum-length .ZIP file comment now load: the
+  initial tail fetch was too small to reach the ZIP64 EOCD record and
+  locator.
 
 ### Security
 

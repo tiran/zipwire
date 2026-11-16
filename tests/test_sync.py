@@ -35,6 +35,15 @@ if typing.TYPE_CHECKING:
     from collections.abc import Generator
 
 
+def with_max_comment(data: bytes) -> bytes:
+    """Return *data* with its .ZIP comment set to the maximum length."""
+    buf = bytearray(data)
+    eocd_pos = buf.rfind(b"PK\x05\x06")
+    struct.pack_into("<H", buf, eocd_pos + 20, 0xFFFF)
+    buf += b"\0" * 0xFFFF
+    return bytes(buf)
+
+
 class TestSyncRemoteZip:
     def test_namelist(self, stored_zip: bytes) -> None:
         reader = MockSyncReader(stored_zip)
@@ -92,6 +101,14 @@ class TestSyncRemoteZip:
             assert eocd.comment == b""
             assert rz.read("f0.txt") == b"x"
             assert rz.read("f65538.txt") == b"x"
+
+    def test_zip64_archive_with_max_comment(self, zip64_zip: bytes) -> None:
+        """A maximum-length comment leaves room for the ZIP64 end records."""
+        data = with_max_comment(zip64_zip)
+        reader = MockSyncReader(data)
+        with SyncRemoteZip(reader) as rz:
+            assert rz.eocd_info.comment == b"\0" * 0xFFFF
+            assert rz.read("f0.txt") == b"x"
 
     def test_url(self, stored_zip: bytes) -> None:
         reader = MockSyncReader(stored_zip, url="https://example.com/archive.zip")
@@ -558,6 +575,14 @@ class TestHardening:
             SyncRemoteZip(reader),
         ):
             pass
+
+    def test_local_header_version_ignored(self, stored_zip: bytes) -> None:
+        """A bogus local-header version does not fail the read."""
+        buf = bytearray(stored_zip)
+        struct.pack_into("<H", buf, buf.find(b"PK\x03\x04") + 4, 0)
+        reader = MockSyncReader(bytes(buf))
+        with SyncRemoteZip(reader) as rz:
+            assert rz.read("hello.txt") == b"Hello, World!"
 
     def test_header_offset_beyond_archive(self, stored_zip: bytes) -> None:
         buf = bytearray(stored_zip)

@@ -139,7 +139,7 @@ class _RemoteWheelMixin:
         if info.header_offset < tail_start or end > tail_end:
             return None
         rel = info.header_offset - tail_start
-        local_header = LocalFileHeaderRecord.parse(self._tail_data[rel:])
+        local_header = LocalFileHeaderRecord.parse(self._tail_data, rel)
         data_start = rel + LocalFileHeaderRecord.FIXED_SIZE + local_header.data_offset_past_header
         if data_start + info.compress_size > len(self._tail_data):
             # Rare: the local header's variable fields exceeded the
