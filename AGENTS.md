@@ -49,11 +49,7 @@ The human contribution workflow (issues, pull requests, security reports) is in
   `if TYPE_CHECKING:` blocks are fine.
   Very special cases may use a local import as a lazy import of a rarely
   used dependency, so that importing the module does not pay for the
-  dependency until it is actually needed. The optional compression
-  modules (`bz2`, `lzma`, `compression.zstd`) in `src/zipwire/_decompress.py`
-  are the precedent: they are imported inside the compression method
-  handlers and a missing module raises `UnsupportedCompression` at use
-  time instead of failing at import time.
+  dependency until it is actually needed.
 - **Keep async code loop-agnostic.** Do not use asyncio-only primitives
   such as `asyncio.sleep(0)` in async code paths. Awaiting an awaitable
   already yields control on every event loop, while asyncio-only calls
