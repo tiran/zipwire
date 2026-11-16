@@ -17,6 +17,8 @@ from zipwire._zipinfo import RemoteZipInfo
 from zipwire._zipstructs import (
     EOCDRecord,
     LocalFileHeaderRecord,
+    Zip64EocdLocatorRecord,
+    Zip64EocdRecord,
     filename_encoding,
 )
 
@@ -216,10 +218,12 @@ class RemoteZipBase:
 
         Called during loading to determine the tail size.
         The default returns the maximum EOCD record size (fixed part
-        plus the largest possible .ZIP file comment).  Subclasses may
-        override this to request a larger tail.
+        plus the largest possible .ZIP file comment) and leaves room
+        for the ZIP64 end record and locator that precede the EOCD in
+        a ZIP64 archive.  Subclasses may override this to request a
+        larger tail.
         """
-        return EOCDRecord.MAX_SIZE
+        return EOCDRecord.MAX_SIZE + Zip64EocdRecord.FIXED_SIZE + Zip64EocdLocatorRecord.FIXED_SIZE
 
     def _store_tail(self, tail_start: int, tail: bytes) -> None:
         """Retain the initial tail fetch.

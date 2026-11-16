@@ -322,10 +322,9 @@ def test_version_needed_upper_byte_ignored() -> None:
     assert make_cdh(version_needed=0x0314).extract_version == 20
 
 
-def test_lfh_version_needed_validated() -> None:
-    """The local file header validates its version as well."""
-    with pytest.raises(BadZipFile, match="outside the ZIP specification versions"):
-        make_lfh(0, b"hello.txt", version=70)
+def test_lfh_version_needed_not_validated() -> None:
+    """The local header's version is ignored; the directory is the authority."""
+    assert make_lfh(0, b"hello.txt", version=0).version_needed == 0
 
 
 def test_cdh_version_needed_corrupt(zip_data, eocd_offset) -> None:
