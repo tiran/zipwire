@@ -72,6 +72,12 @@ dependency:
 Asynchronous usage
 ------------------
 
+The async API is loop-agnostic: it runs under asyncio and trio alike (anyio
+is used internally).  The ``Httpx2AsyncReader`` backend and
+:class:`~zipwire.backends.AsyncFileReader` work on both loops; the
+``AiohttpReader`` backend requires asyncio, because aiohttp itself is bound
+to it.
+
 Async with aiohttp
 ^^^^^^^^^^^^^^^^^^
 

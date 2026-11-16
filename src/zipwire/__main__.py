@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
 import logging
 import sys
+
+import anyio
 
 from zipwire import AsyncRemoteZip, RemoteZipInfo, SyncRemoteZip, ZipwireError
 
@@ -91,7 +92,8 @@ def main(argv: list[str] | None = None) -> None:
         if args.backend in ("urllib3", "requests"):
             _run_sync(args.url, args.backend, skip_dirs=not args.dirs)
         else:
-            asyncio.run(_run_async(args.url, args.backend, skip_dirs=not args.dirs))
+            # anyio.run() drives the coroutine on asyncio by default.
+            anyio.run(_run_async, args.url, args.backend, not args.dirs)
     except ZipwireError as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
