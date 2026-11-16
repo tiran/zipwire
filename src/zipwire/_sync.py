@@ -98,9 +98,14 @@ class SyncRemoteZip(RemoteZipBase):
         # Step 2: Parse EOCD
         eocd = find_eocd(tail, file_size)
 
-        # Step 3: Fetch central directory and store parsed state
+        # Step 3: Fetch the central directory, reusing the tail when it
+        # already contains it, and store parsed state.
         self._validate_cd_bounds(file_size, eocd)
-        cd_data, _ = self._reader.read_range(eocd.cd_offset, eocd.cd_size)
+        if eocd.cd_size and eocd.cd_offset >= tail_start:
+            start = eocd.cd_offset - tail_start
+            cd_data = tail[start : start + eocd.cd_size]
+        else:
+            cd_data, _ = self._reader.read_range(eocd.cd_offset, eocd.cd_size)
         self._set_entries(cd_data, file_size, eocd)
         self._store_tail(tail_start, tail)
 

@@ -24,6 +24,9 @@ releases; they are marked **BREAKING**.
 
 ### Changed
 
+- Loading now reuses the initial tail fetch for the central directory
+  when the tail already contains it, saving one range request for small
+  archives and wheels.
 - The "version needed to extract" of central directory headers and of
   the ZIP64 end of central directory record is now validated: a version
   outside the ZIP specification versions 1.0 to 6.3, or below 4.5 in the
