@@ -18,7 +18,7 @@ from zipwire._zipstructs import (
     Zip64EocdLocatorRecord,
     Zip64EocdRecord,
     Zip64ExtendedInfo,
-    find_extra_field,
+    get_unique_extra_field,
     iter_extra_fields,
     signature_t,
     uint16_t,
@@ -319,7 +319,16 @@ def test_iter_extra_fields_overrun_rejected() -> None:
         list(iter_extra_fields(struct.pack("<HH", 0x5455, 100)))
 
 
-def test_find_extra_field() -> None:
+def test_get_unique_extra_field() -> None:
+    blob = struct.pack("<HH", 0x5455, 1) + b"a" + struct.pack("<HH", ExtraDataId.ZIP64, 2) + b"zz"
+    fields = list(iter_extra_fields(blob))
+    record = get_unique_extra_field(fields, ExtraDataId.ZIP64)
+    assert record is not None and record.data_size == 2
+    assert get_unique_extra_field(fields, 0x7875) is None
+    assert get_unique_extra_field([], ExtraDataId.ZIP64) is None
+
+
+def test_find_extra_field_duplicate_rejected() -> None:
     blob = (
         struct.pack("<HH", 0x5455, 1)
         + b"a"
@@ -327,10 +336,9 @@ def test_find_extra_field() -> None:
         + struct.pack("<HH", ExtraDataId.ZIP64, 2)
         + b"zz"
     )
-    record = find_extra_field(blob, ExtraDataId.ZIP64)
-    assert record is not None and record.data_size == 0
-    assert find_extra_field(blob, 0x7875) is None
-    assert find_extra_field(b"", ExtraDataId.ZIP64) is None
+    fields = list(iter_extra_fields(blob))
+    with pytest.raises(BadZipFile, match="more than once"):
+        get_unique_extra_field(fields, ExtraDataId.ZIP64)
 
 
 @pytest.mark.parametrize(

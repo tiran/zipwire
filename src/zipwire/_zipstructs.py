@@ -32,7 +32,7 @@ from zipwire._constants import MAX_UINT16, MAX_UINT32, HeaderFlag
 from zipwire._errors import BadZipFile
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterable, Iterator
 
 
 # Field width types, named after the C integer types.  A field
@@ -473,12 +473,21 @@ def iter_extra_fields(extra: bytes) -> Iterator[ExtraFieldRecord]:
         offset += record.total_size
 
 
-def find_extra_field(extra: bytes, header_id: int) -> ExtraFieldRecord | None:
-    """Return the first extra data field with *header_id*, if any."""
-    for record in iter_extra_fields(extra):
-        if record.header_id == header_id:
-            return record
-    return None
+def get_unique_extra_field(
+    fields: Iterable[ExtraFieldRecord], header_id: int
+) -> ExtraFieldRecord | None:
+    """Return the extra data field with *header_id*, if any.
+
+    Raises:
+        BadZipFile: If *header_id* occurs more than once.
+    """
+    record: ExtraFieldRecord | None = None
+    for field in fields:
+        if field.header_id == header_id:
+            if record is not None:
+                raise BadZipFile(f"extra field {header_id:#06x} occurs more than once")
+            record = field
+    return record
 
 
 @dataclass(frozen=True, slots=True)

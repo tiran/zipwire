@@ -105,6 +105,7 @@ class TestRemoteZipInfoCompat:
             assert ours.file_size == stdlib.file_size
             assert ours.compress_size == stdlib.compress_size
             assert ours.header_offset == stdlib.header_offset
+            assert ours._raw_time == stdlib._raw_time  # type: ignore[attr-defined]
 
 
 def make_cd_entry(
@@ -193,6 +194,14 @@ class TestZip64Resolution:
         )
         with pytest.raises(BadZipFile, match="File size not found"):
             RemoteZipInfo._from_central_dir_entry(entry)
+
+
+def test_raw_time() -> None:
+    """The raw DOS time word is kept as stdlib zipfile does."""
+    entry = make_cd_entry(mod_time=0x5224, mod_date=0x66D4)
+    info = RemoteZipInfo._from_central_dir_entry(entry)
+    assert info._raw_time == 0x5224
+    assert info.date_time == (2031, 6, 20, 10, 17, 8)
 
 
 def test_unicode_path_extra_field() -> None:
